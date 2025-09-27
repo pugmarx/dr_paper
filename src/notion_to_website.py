@@ -80,6 +80,12 @@ class NotionToWebsite:
             if topic_prop.get("select") and topic_prop["select"]:
                 topic = topic_prop["select"].get("name", "General")
             
+            # Extract status
+            status_prop = properties.get("Status", {})
+            status = "To Read"  # Default status
+            if status_prop.get("select") and status_prop["select"]:
+                status = status_prop["select"].get("name", "To Read")
+            
             # Extract summary
             summary_prop = properties.get("Summary", {})
             summary = ""
@@ -98,8 +104,36 @@ class NotionToWebsite:
             if created_prop.get("date") and created_prop["date"].get("start"):
                 date = created_prop["date"]["start"]
             
-            # Extract or generate authors (placeholder if not available)
-            authors = ["Unknown Author"]  # Will be enhanced when authors field is added to Notion
+            # Extract authors
+            authors_prop = properties.get("Authors", {})
+            authors = []
+            if authors_prop.get("multi_select"):
+                authors = [author.get("name", "Unknown") for author in authors_prop["multi_select"]]
+            if not authors:  # Fallback if no authors found
+                authors = ["Unknown Author"]
+            
+            # Extract and format summary with proper paragraphs
+            summary_prop = properties.get("Summary", {})
+            summary_parts = []
+            if summary_prop.get("rich_text"):
+                current_paragraph = []
+                for text in summary_prop["rich_text"]:
+                    content = text.get("plain_text", "")
+                    annotations = text.get("annotations", {})
+                    
+                    # Handle line breaks
+                    if content == "\n":
+                        if current_paragraph:
+                            summary_parts.append(" ".join(current_paragraph))
+                            current_paragraph = []
+                    else:
+                        current_paragraph.append(content)
+                
+                # Add the last paragraph if any
+                if current_paragraph:
+                    summary_parts.append(" ".join(current_paragraph))
+            
+            summary = "\n\n".join(summary_parts) if summary_parts else "No summary available."
             
             # Skip papers without title
             if not title.strip():
@@ -109,8 +143,9 @@ class NotionToWebsite:
                 "id": page["id"],
                 "title": title.strip(),
                 "authors": authors,
-                "summary": summary.strip() or "No summary available.",
+                "summary": summary,
                 "topic": topic,
+                "status": status,
                 "date": date,
                 "arxiv_id": arxiv_id.strip(),
                 "pdf_url": pdf_url.strip(),

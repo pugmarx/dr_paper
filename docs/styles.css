@@ -48,6 +48,47 @@
 }
 
 /* Base styles */
+
+/* Paper status styles */
+.paper-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.status-to-read {
+    background-color: var(--text-muted);
+    color: var(--bg-primary);
+}
+
+.status-reading {
+    background-color: var(--accent-color);
+    color: var(--bg-primary);
+}
+
+.status-published {
+    background-color: #22c55e;  /* green */
+    color: var(--bg-primary);
+}
+
+.status-discarded {
+    background-color: #ef4444;  /* red */
+    color: var(--bg-primary);
+}
+
+/* Summary paragraphs */
+.summary-preview p,
+.summary-full p {
+    margin-bottom: 1rem;
+}
+
+.summary-preview p:last-child,
+.summary-full p:last-child {
+    margin-bottom: 0;
+}
 * {
     box-sizing: border-box;
     margin: 0;

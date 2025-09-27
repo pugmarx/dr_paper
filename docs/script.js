@@ -211,6 +211,12 @@ class PapersWebsite {
         card.querySelector('.paper-title').textContent = paper.title;
         card.querySelector('.paper-date').textContent = new Date(paper.date).toLocaleDateString();
         card.querySelector('.paper-topic').textContent = paper.topic;
+        
+        // Add status with appropriate styling
+        const statusElem = card.querySelector('.paper-status');
+        statusElem.textContent = paper.status;
+        statusElem.className = `paper-status status-${paper.status.toLowerCase().replace(/\s+/g, '-')}`;
+        
         card.querySelector('.paper-authors').textContent = paper.authors.join(', ');
         
         // Handle summary with read more functionality
@@ -222,9 +228,18 @@ class PapersWebsite {
         const summaryFull = card.querySelector('.summary-full');
         const readMoreBtn = card.querySelector('.read-more-btn');
         
+        // Convert string paragraphs to HTML paragraphs
+        const formatSummary = (text) => {
+            return text.split('\n\n').map(para => `<p>${para.trim()}</p>`).join('');
+        };
+        
         if (isLong) {
-            summaryPreview.textContent = summary.substring(0, previewLength) + '...';
-            summaryFull.textContent = summary;
+            // For preview, use only the first paragraph
+            const firstParagraph = summary.split('\n\n')[0];
+            summaryPreview.innerHTML = firstParagraph.length > previewLength ? 
+                firstParagraph.substring(0, previewLength) + '...' : 
+                firstParagraph;
+            summaryFull.innerHTML = formatSummary(summary);
             
             readMoreBtn.addEventListener('click', () => {
                 const isExpanded = summaryFull.style.display !== 'none';

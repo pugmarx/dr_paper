@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Paper</title>
+    <meta name="description" content="A curated collection of research papers with AI-generated summaries">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="site-title">
+                    <img src="images/dr-paper.png" alt="Dr. Paper Logo" class="site-logo">
+                    Dr. Paper
+                </h1>
+                <p class="site-description">AI-curated collection of research papers with intelligent summaries</p>
+                
+                <div class="header-controls">
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Search papers..." class="search-input">
+                    </div>
+                    
+                    <div class="filter-container">
+                        <select id="topicFilter" class="topic-filter">
+                            <option value="all">All Topics</option>
+                        </select>
+                    </div>
+                    
+                    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="stats-bar">
+                <div class="stat">
+                    <span class="stat-number" id="totalPapers">0</span>
+                    <span class="stat-label">Papers</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="totalTopics">0</span>
+                    <span class="stat-label">Topics</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number" id="lastUpdated">Loading...</span>
+                    <span class="stat-label">Last Updated</span>
+                </div>
+            </div>
+
+            <div id="loadingSpinner" class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading papers...</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading papers. Please try again later.</p>
+            </div>
+
+            <div id="papersGrid" class="papers-grid">
+                <!-- Papers will be dynamically inserted here -->
+            </div>
+
+            <div id="noResults" class="no-results" style="display: none;">
+                <i class="fas fa-search"></i>
+                <h3>No papers found</h3>
+                <p>Try adjusting your search terms or filters</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Dr. Paper. Generated from Notion database.</p>
+            <div class="footer-links">
+                <a href="https://github.com/pugmarx/dr_paper" target="_blank">
+                    <i class="fab fa-github"></i> View Source
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Paper Card Template -->
+    <template id="paperCardTemplate">
+        <article class="paper-card">
+            <div class="paper-header">
+                <h2 class="paper-title"></h2>
+                <div class="paper-meta">
+                    <span class="paper-date"></span>
+                    <span class="paper-topic"></span>
+                </div>
+            </div>
+            
+            <div class="paper-authors"></div>
+            
+            <div class="paper-summary">
+                <div class="summary-preview"></div>
+                <div class="summary-full" style="display: none;"></div>
+                <button class="read-more-btn" type="button">
+                    <span class="read-more-text">Read more</span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+            
+            <div class="paper-actions">
+                <a href="#" class="action-btn arxiv-btn" target="_blank">
+                    <i class="fas fa-external-link-alt"></i>
+                    ArXiv
+                </a>
+                <a href="#" class="action-btn pdf-btn" target="_blank">
+                    <i class="fas fa-file-pdf"></i>
+                    PDF
+                </a>
+                <button class="action-btn share-btn" type="button">
+                    <i class="fas fa-share"></i>
+                    Share
+                </button>
+            </div>
+        </article>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+</html>

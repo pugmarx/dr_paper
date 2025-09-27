@@ -1,0 +1,12 @@
+# GitHub Pages Configuration
+title: "Dr. Paper"
+description: "A curated collection of research papers with AI-generated summaries"
+
+# Essential plugins for SEO
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude development files
+exclude:
+  - README.md

@@ -104,12 +104,18 @@ class NotionToWebsite:
             if created_prop.get("date") and created_prop["date"].get("start"):
                 date = created_prop["date"]["start"]
             
-            # Extract authors
+            # Extract authors from rich text field
             authors_prop = properties.get("Authors", {})
             authors = []
-            if authors_prop.get("multi_select"):
-                authors = [author.get("name", "Unknown") for author in authors_prop["multi_select"]]
-            if not authors:  # Fallback if no authors found
+            if authors_prop.get("rich_text"):
+                # Combine all text blocks
+                authors_text = "".join([text.get("plain_text", "") for text in authors_prop["rich_text"]])
+                if authors_text.strip():
+                    # Split on common separators (comma or semicolon) and clean up
+                    authors = [auth.strip() for auth in authors_text.replace(";", ",").split(",") if auth.strip()]
+            
+            # Fallback if no authors found
+            if not authors:
                 authors = ["Unknown Author"]
             
             # Extract and format summary with proper paragraphs

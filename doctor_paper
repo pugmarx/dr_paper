@@ -1,0 +1,182 @@
+#!/bin/zsh
+
+# Research Paper RAG Wrapper Script
+# Usage: ./paper_rag [options] <pdf_file> [custom_query]
+
+set -e
+
+# Default configuration
+DEFAULT_MODEL="llama3.1:8b"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RAG_SCRIPT="$SCRIPT_DIR/src/research_paper_rag.py"
+VENV_PATH="$SCRIPT_DIR/.agentic"
+
+# Default prompts
+BLOG_PROMPT="You are writing for a technical blog audience. Summarize this research paper in a clear, engaging way.
+
+    Structure your response as:
+    1. What problem does this solve? (1-2 sentences)
+    2. Key innovation or approach (2-3 sentences)
+    3. Why it matters / Impact (1-2 sentences)
+
+    Write in an accessible but technical tone. Avoid jargon when possible."
+
+SUMMARY_PROMPT="Provide a comprehensive summary of this research paper including:
+    - Main research question and motivation
+    - Methodology and approach
+    - Key findings and results
+    - Limitations and future work
+    - Significance to the field"
+
+TECHNICAL_PROMPT="Analyze this research paper from a technical perspective:
+    - What are the core technical contributions?
+    - How does the methodology work?
+    - What are the experimental setup and evaluation metrics?
+    - What are the technical limitations?"
+
+COMPARE_PROMPT="Compare this research paper to existing work in the field:
+    - What previous work does it build upon?
+    - How does it differ from or improve upon existing approaches?
+    - What are the claimed advantages over related work?"
+
+# Function to show usage
+usage() {
+    cat << EOF
+Research Paper RAG Tool Wrapper
+
+Usage: $0 [OPTIONS] <pdf_file> [custom_query]
+
+This script automatically activates the .agentic virtual environment if available.
+
+OPTIONS:
+    -m, --model MODEL       Specify the model to use (default: $DEFAULT_MODEL)
+    -p, --prompt TYPE       Use predefined prompt type:
+                              blog     - Blog-style summary (default)
+                              summary  - Comprehensive summary
+                              tech     - Technical analysis
+                              compare  - Comparison with existing work
+    -h, --help             Show this help message
+
+EXAMPLES:
+    # Use default blog prompt
+    $0 ./papers/attention.pdf
+    
+    # Use technical analysis prompt
+    $0 -p tech ./papers/attention.pdf
+    
+    # Use custom model
+    $0 -m llama2 ./papers/attention.pdf
+    
+    # Use custom query
+    $0 ./papers/attention.pdf "Explain the transformer architecture in simple terms"
+    
+    # Combine options
+    $0 -m llama3.1:8b -p summary ./papers/attention.pdf
+
+EOF
+}
+
+# Parse command line arguments
+MODEL="$DEFAULT_MODEL"
+PROMPT_TYPE="blog"
+CUSTOM_QUERY=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -m|--model)
+            MODEL="$2"
+            shift 2
+            ;;
+        -p|--prompt)
+            PROMPT_TYPE="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            if [[ -z "$PDF_FILE" ]]; then
+                PDF_FILE="$1"
+            elif [[ -z "$CUSTOM_QUERY" ]]; then
+                CUSTOM_QUERY="$1"
+            else
+                echo "Too many arguments"
+                usage
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$PDF_FILE" ]]; then
+    echo "Error: PDF file is required"
+    usage
+    exit 1
+fi
+
+# Check if PDF file exists
+if [[ ! -f "$PDF_FILE" ]]; then
+    echo "Error: PDF file '$PDF_FILE' not found"
+    exit 1
+fi
+
+# Check if RAG script exists
+if [[ ! -f "$RAG_SCRIPT" ]]; then
+    echo "Error: RAG script '$RAG_SCRIPT' not found"
+    exit 1
+fi
+
+# Check if virtual environment exists and activate it
+if [[ -d "$VENV_PATH" ]]; then
+    echo "Activating virtual environment: .agentic"
+    source "$VENV_PATH/bin/activate"
+else
+    echo "Warning: Virtual environment '.agentic' not found at $VENV_PATH"
+    echo "   Using system Python. Consider creating the virtual environment:"
+    echo "   python -m venv .agentic"
+    echo ""
+fi
+
+# Select prompt based on type
+if [[ -n "$CUSTOM_QUERY" ]]; then
+    QUERY="$CUSTOM_QUERY"
+else
+    case "$PROMPT_TYPE" in
+        blog)
+            QUERY="$BLOG_PROMPT"
+            ;;
+        summary)
+            QUERY="$SUMMARY_PROMPT"
+            ;;
+        tech)
+            QUERY="$TECHNICAL_PROMPT"
+            ;;
+        compare)
+            QUERY="$COMPARE_PROMPT"
+            ;;
+        *)
+            echo "Error: Unknown prompt type '$PROMPT_TYPE'"
+            echo "Available types: blog, summary, tech, compare"
+            exit 1
+            ;;
+    esac
+fi
+
+# Display configuration
+echo "Configuration:"
+echo "   Model: $MODEL"
+echo "   PDF: $PDF_FILE"
+echo "   Prompt: $PROMPT_TYPE"
+echo "   Python: $(which python)"
+echo ""
+
+# Run the RAG script
+python "$RAG_SCRIPT" --model "$MODEL" "$PDF_FILE" "$QUERY"

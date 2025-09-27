@@ -1,0 +1,11 @@
+langchain 
+langchain-community 
+langchain-ollama
+openai
+faiss-cpu
+chromadb
+pypdf
+python-dotenv
+requests
+#transformers #needed for chain_type="map_reduce"
+feedparser

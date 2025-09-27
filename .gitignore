@@ -1,0 +1,95 @@
+# FAISS indexes and cached data
+.data/
+faiss_index_*/
+
+# Papers and documents (sensitive content)
+papers/
+pdf/
+*.pdf
+*.doc
+*.docx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+*.pyo
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.agentic/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Data and model files
+*.index
+*.pkl
+*.pickle
+models/
+outputs/
+cache/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Configuration files that might contain secrets
+config.ini
+.env.local
+.env.production
+secrets.json
+credentials.json
+langchain.properties
+
+# Jupyter notebooks (might contain outputs with sensitive data)
+*.ipynb_checkpoints/
+
+# Any backup files
+*.bak
+*.backup
+*.old

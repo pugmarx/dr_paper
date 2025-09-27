@@ -1,0 +1,12 @@
+{
+  "code_modification_policy": "ask_first",
+  "auto_edit": false,
+  "require_approval": true,
+  "allowed_without_permission": [
+    "read_file",
+    "list_dir",
+    "grep_search",
+    "semantic_search",
+    "run_in_terminal (for analysis only)"
+  ]
+}

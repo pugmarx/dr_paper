@@ -1,7 +1,8 @@
-#!/bin/zsh
+#!/bin/bash
 
-# Research Paper RAG Wrapper Script
-# Usage: ./paper_rag [options] <pdf_file> [custom_query]
+# Research Paper RAG Wrapper Script with Notion Integration
+# Usage: ./doctor_paper [options] <pdf_file> [custom_query]
+#        ./doctor_paper --fetch-notion
 
 set -e
 
@@ -9,7 +10,12 @@ set -e
 DEFAULT_MODEL="llama3.1:8b"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAG_SCRIPT="$SCRIPT_DIR/src/research_paper_rag.py"
+FETCH_NOTION_SCRIPT="$SCRIPT_DIR/src/fetch_and_notion.py"
 VENV_PATH="$SCRIPT_DIR/.agentic"
+REQUIREMENTS_FILE="$SCRIPT_DIR/requirements.txt"
+
+# Initialize flags
+FETCH_NOTION=false
 
 # Default prompts
 BLOG_PROMPT="You are writing for a technical blog audience. Summarize this research paper in a clear, engaging way.
@@ -39,14 +45,86 @@ COMPARE_PROMPT="Compare this research paper to existing work in the field:
     - How does it differ from or improve upon existing approaches?
     - What are the claimed advantages over related work?"
 
-# Function to show usage
+# Function to ensure virtual environment exists and is properly set up
+ensure_venv() {
+    echo "Checking virtual environment setup..."
+    
+    if [[ ! -d "$VENV_PATH" ]]; then
+        echo "Creating virtual environment: $VENV_PATH"
+        python3 -m venv "$VENV_PATH"
+        
+        if [[ $? -ne 0 ]]; then
+            echo "Error: Failed to create virtual environment"
+            echo "Please ensure python3 is installed and try again"
+            exit 1
+        fi
+        echo "[+] Virtual environment created"
+    else
+        echo "[+] Virtual environment found"
+    fi
+    
+    # Activate the virtual environment
+    echo "Activating virtual environment..."
+    source "$VENV_PATH/bin/activate"
+    
+    # Check if requirements need to be installed/updated
+    if [[ -f "$REQUIREMENTS_FILE" ]]; then
+        echo "Installing/updating requirements..."
+        pip install --upgrade pip --quiet
+        pip install -r "$REQUIREMENTS_FILE" --quiet
+        
+        if [[ $? -eq 0 ]]; then
+            echo "[+] Requirements installed successfully"
+        else
+            echo "[x] Failed to install requirements"
+            exit 1
+        fi
+    else
+        echo "[!] Requirements file not found: $REQUIREMENTS_FILE"
+    fi
+    
+    echo ">> Environment ready!"
+    echo ""
+}
+
+# Function to run the fetch and notion pipeline
+run_fetch_notion_pipeline() {
+    echo "Running Paper Fetch and Notion Pipeline"
+    echo "======================================"
+    
+    # Check if the fetch_and_notion script exists
+    if [[ ! -f "$FETCH_NOTION_SCRIPT" ]]; then
+        echo "Error: Fetch and Notion script not found: $FETCH_NOTION_SCRIPT"
+        exit 1
+    fi
+    
+    # Check for .env file
+    if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
+        echo "[!] .env file not found"
+        echo "Please create a .env file with:"
+        echo "  NOTION_TOKEN=your_notion_token"
+        echo "  NOTION_DATABASE_ID=your_database_id"
+        echo ""
+    fi
+    
+    # Run the fetch and notion script
+    echo "Starting pipeline..."
+    python "$FETCH_NOTION_SCRIPT"
+}
+
+# Enhanced usage function
 usage() {
     cat << EOF
-Research Paper RAG Tool Wrapper
+Research Paper RAG Tool with Notion Integration
 
-Usage: $0 [OPTIONS] <pdf_file> [custom_query]
+Usage: 
+    # Analyze a single PDF
+    $0 [OPTIONS] <pdf_file> [custom_query]
+    
+    # Run full paper fetch and Notion pipeline
+    $0 --fetch-notion
 
-This script automatically activates the .agentic virtual environment if available.
+This script automatically sets up the .agentic virtual environment and installs dependencies.
 
 OPTIONS:
     -m, --model MODEL       Specify the model to use (default: $DEFAULT_MODEL)
@@ -55,10 +133,11 @@ OPTIONS:
                               summary  - Comprehensive summary
                               tech     - Technical analysis
                               compare  - Comparison with existing work
+    -f, --fetch-notion      Run paper fetch and Notion integration pipeline
     -h, --help             Show this help message
 
 EXAMPLES:
-    # Use default blog prompt
+    # Analyze single paper with default blog prompt
     $0 ./papers/attention.pdf
     
     # Use technical analysis prompt
@@ -70,8 +149,17 @@ EXAMPLES:
     # Use custom query
     $0 ./papers/attention.pdf "Explain the transformer architecture in simple terms"
     
-    # Combine options
+    # Run full paper fetch and Notion pipeline
+    $0 --fetch-notion
+    
+    # Combine options for single paper
     $0 -m llama3.1:8b -p summary ./papers/attention.pdf
+
+SETUP:
+    The script will automatically:
+    - Create .agentic virtual environment if needed
+    - Install all requirements from requirements.txt
+    - Set up the environment for both single paper analysis and batch processing
 
 EOF
 }
@@ -80,6 +168,7 @@ EOF
 MODEL="$DEFAULT_MODEL"
 PROMPT_TYPE="blog"
 CUSTOM_QUERY=""
+PDF_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -90,6 +179,10 @@ while [[ $# -gt 0 ]]; do
         -p|--prompt)
             PROMPT_TYPE="$2"
             shift 2
+            ;;
+        -f|--fetch-notion)
+            FETCH_NOTION=true
+            shift
             ;;
         -h|--help)
             usage
@@ -115,9 +208,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required arguments
+# Always ensure virtual environment is set up first
+ensure_venv
+
+# Handle fetch-notion mode
+if [[ "$FETCH_NOTION" == true ]]; then
+    run_fetch_notion_pipeline
+    exit 0
+fi
+
+# Validate required arguments for single paper analysis
 if [[ -z "$PDF_FILE" ]]; then
-    echo "Error: PDF file is required"
+    echo "Error: PDF file is required for single paper analysis"
+    echo "Use --fetch-notion for batch processing, or provide a PDF file"
+    echo ""
     usage
     exit 1
 fi
@@ -132,17 +236,6 @@ fi
 if [[ ! -f "$RAG_SCRIPT" ]]; then
     echo "Error: RAG script '$RAG_SCRIPT' not found"
     exit 1
-fi
-
-# Check if virtual environment exists and activate it
-if [[ -d "$VENV_PATH" ]]; then
-    echo "Activating virtual environment: .agentic"
-    source "$VENV_PATH/bin/activate"
-else
-    echo "Warning: Virtual environment '.agentic' not found at $VENV_PATH"
-    echo "   Using system Python. Consider creating the virtual environment:"
-    echo "   python -m venv .agentic"
-    echo ""
 fi
 
 # Select prompt based on type

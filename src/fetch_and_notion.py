@@ -201,19 +201,6 @@ class NotionDatabase:
         Args:
             paper_data (dict): Paper information
         """
-        # Check if paper already exists
-        arxiv_id = paper_data.get('arxiv_id', '')
-        title = paper_data.get('title', '')
-        
-        exists, existing_page_id = self.check_paper_exists(arxiv_id, title)
-        if exists:
-            return {
-                "success": True,
-                "message": f"Paper already exists in database",
-                "page_id": existing_page_id,
-                "action": "skipped"
-            }
-        
         url = f"{self.base_url}/pages"
         
         # Ensure URLs are valid (Notion requires valid URLs or empty string)
@@ -289,10 +276,10 @@ class NotionDatabase:
                 try:
                     error_json = response.json()
                     error_detail = error_json.get("message", response.text)
-                except:
+                except json.JSONDecodeError:
                     error_detail = response.text
                 
-                print(f"Notion API Error Details:")
+                print("Notion API Error Details:")
                 print(f"Status Code: {response.status_code}")
                 print(f"Response: {error_detail}")
                 
@@ -359,8 +346,25 @@ def download_paper_pdf(paper, pdf_dir="./pdf"):
         print(f"Error downloading PDF: {e}")
         return None
 
-def analyze_paper_with_rag(pdf_path):
-    """Use the doctor_paper tool to analyze the paper"""
+def analyze_paper_with_rag(pdf_path, cache_dir="./rag_cache"):
+    """Use the doctor_paper tool to analyze the paper with caching"""
+    # Create cache directory if it doesn't exist
+    Path(cache_dir).mkdir(exist_ok=True)
+    
+    # Generate cache file name based on PDF name
+    pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
+    cache_file = os.path.join(cache_dir, f"{pdf_name}_analysis.txt")
+    
+    # Check if analysis is already cached
+    if os.path.exists(cache_file):
+        print("   Using cached RAG analysis...")
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except (IOError, UnicodeDecodeError) as e:
+            print(f"   Warning: Could not read cache file: {e}")
+            # Continue with fresh analysis
+    
     try:
         # Use the blog prompt for a good summary
         cmd = ["./doctor_paper", pdf_path]
@@ -378,19 +382,31 @@ def analyze_paper_with_rag(pdf_path):
             output = result.stdout
             start_marker = "=" * 60
             
+            analysis_result = None
             if start_marker in output:
                 # Find content between the separators
                 parts = output.split(start_marker)
                 if len(parts) >= 3:
-                    return parts[1].strip()
+                    analysis_result = parts[1].strip()
                 elif len(parts) == 2:
-                    return parts[1].strip()
+                    analysis_result = parts[1].strip()
             
             # Fallback: return the output after "Generating response..."
-            if "Generating response..." in output:
-                return output.split("Generating response...")[-1].strip()
+            if not analysis_result and "Generating response..." in output:
+                analysis_result = output.split("Generating response...")[-1].strip()
             
-            return output
+            if not analysis_result:
+                analysis_result = output
+            
+            # Cache the result for future use
+            try:
+                with open(cache_file, 'w', encoding='utf-8') as f:
+                    f.write(analysis_result)
+                print(f"   Analysis cached to: {cache_file}")
+            except IOError as e:
+                print(f"   Warning: Could not cache analysis: {e}")
+            
+            return analysis_result
         else:
             print(f"RAG analysis failed with return code: {result.returncode}")
             return None
@@ -409,7 +425,25 @@ def process_papers_to_notion(papers, notion_db, pdf_dir="./pdf"):
     for i, paper in enumerate(papers, 1):
         print(f"\nProcessing paper {i}/{len(papers)}: {paper['title'][:50]}...")
         
-        # Step 1: Download PDF
+        # Step 1: Check if paper already exists in Notion DB first
+        arxiv_id = extract_arxiv_id(paper.get('pdf_url', paper.get('link', '')))
+        print("   Checking if paper already exists in Notion database...")
+        
+        exists, existing_page_id = notion_db.check_paper_exists(arxiv_id, paper['title'])
+        if exists:
+            print("   Paper already exists in database - skipped!")
+            results.append({
+                "title": paper['title'],
+                "success": True,
+                "action": "skipped",
+                "page_id": existing_page_id,
+                "page_url": f"https://www.notion.so/{existing_page_id.replace('-', '')}"
+            })
+            continue
+        
+        print("   Paper is new - proceeding with processing...")
+        
+        # Step 2: Download PDF (only for new papers)
         print("   Downloading PDF...")
         pdf_path = download_paper_pdf(paper, pdf_dir)
         
@@ -424,12 +458,9 @@ def process_papers_to_notion(papers, notion_db, pdf_dir="./pdf"):
         
         print(f"   PDF downloaded: {os.path.basename(pdf_path)}")
         
-        # Step 2: Generate RAG summary
+        # Step 3: Generate RAG summary (only for new papers)
         print("   Analyzing with RAG...")
         rag_summary = analyze_paper_with_rag(pdf_path)
-        
-        # Step 3: Extract arXiv ID
-        arxiv_id = extract_arxiv_id(paper.get('pdf_url', paper.get('link', '')))
         
         # Step 4: Prepare data for Notion
         notion_data = {
@@ -448,10 +479,7 @@ def process_papers_to_notion(papers, notion_db, pdf_dir="./pdf"):
         
         if notion_result["success"]:
             action = notion_result.get("action", "added")
-            if action == "skipped":
-                print("   Paper already exists in database - skipped!")
-            else:
-                print("   Added to Notion successfully!")
+            print("   Added to Notion successfully!")
             print(f"   Page ID: {notion_result.get('page_id', 'Unknown')}")
             results.append({
                 "title": paper['title'],
@@ -538,6 +566,11 @@ def main():
         return
     
     print("\nStarting Paper-to-Notion Pipeline")
+    print("=" * 50)
+    print("Optimizations enabled:")
+    print("  - Check Notion DB first (skip processing if paper exists)")
+    print("  - PDF download caching")
+    print("  - RAG analysis caching")
     print("=" * 50)
     
     # Check if RAG script exists

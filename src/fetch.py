@@ -1,5 +1,37 @@
 import feedparser
 from datetime import datetime, timedelta
+import time
+from functools import wraps
+
+class RateLimiter:
+    def __init__(self, calls_per_second=1/3):  # Default: 1 call per 3 seconds for arXiv
+        self.calls_per_second = calls_per_second
+        self.last_call = 0
+    
+    def wait(self):
+        """Wait if needed to respect rate limits"""
+        now = time.time()
+        time_since_last = now - self.last_call
+        time_to_wait = (1.0 / self.calls_per_second) - time_since_last
+        
+        if time_to_wait > 0:
+            time.sleep(time_to_wait)
+        
+        self.last_call = time.time()
+
+# Create rate limiters for different APIs
+arxiv_limiter = RateLimiter(calls_per_second=1/3)  # 1 request per 3 seconds
+semantic_limiter = RateLimiter(calls_per_second=1)  # 1 request per second
+
+def rate_limited(limiter):
+    """Decorator to apply rate limiting to functions"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            limiter.wait()
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 # Define arXiv search query
 # TOPICS = [
@@ -26,15 +58,17 @@ def is_relevant(paper):
 
 
 def build_query(title_keywords, categories, max_results=5):
-	topic_part = "+OR+".join(f"ti:{kw.replace(' ', '+')}" for kw in title_keywords)
-	category_part = "+OR+".join(f"cat:{cat}" for cat in categories)
-	full_query = f"({topic_part})+AND+({category_part})"
-	return f"{BASE_URL}search_query={full_query}&sortBy=submittedDate&sortOrder=descending&max_results={max_results}"
+    topic_part = "+OR+".join(f"ti:{kw.replace(' ', '+')}" for kw in title_keywords)
+    category_part = "+OR+".join(f"cat:{cat}" for cat in categories)
+    full_query = f"({topic_part})+AND+({category_part})"
+    return f"{BASE_URL}search_query={full_query}&sortBy=submittedDate&sortOrder=descending&max_results={max_results}"
 
+@rate_limited(arxiv_limiter)
+def fetch_arxiv_paper(url):
+    """Fetch a single paper from arXiv with rate limiting"""
+    return feedparser.parse(url)
 
-import feedparser
 import requests
-import time
 from datetime import datetime
 
 def fetch_top_papers_semantic_scholar():
@@ -64,13 +98,14 @@ def fetch_top_papers_semantic_scholar():
         
         for attempt in range(max_retries):
             try:
+                semantic_limiter.wait()  # Apply rate limiting
                 response = requests.get(search_url, params=params)
                 
                 if response.status_code == 429:  # Rate limited
                     if attempt < max_retries - 1:
-                        print(f"   Rate limited, waiting {retry_delay} seconds before retry {attempt + 1}/{max_retries}")
-                        time.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
+                        wait_time = min(retry_delay * (2 ** attempt), 60)  # Cap at 60 seconds
+                        print(f"   Rate limited, waiting {wait_time} seconds before retry {attempt + 1}/{max_retries}")
+                        time.sleep(wait_time)
                         continue
                     else:
                         print(f"   Max retries reached for topic: {topic}")
@@ -131,6 +166,8 @@ def fetch_top_papers_semantic_scholar():
     all_top_papers.sort(key=lambda x: x['citation_count'], reverse=True)
     return all_top_papers[:10]  # Return top 10 overall
 
+crossref_limiter = RateLimiter(calls_per_second=1/2)  # 1 request per 2 seconds
+
 def fetch_top_papers_crossref():
     """
     Alternative approach using CrossRef API
@@ -151,6 +188,7 @@ def fetch_top_papers_crossref():
         }
         
         try:
+            crossref_limiter.wait()  # Apply rate limiting
             response = requests.get(url, params=params)
             if response.status_code == 200:
                 data = response.json()

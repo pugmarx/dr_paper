@@ -14,6 +14,14 @@ load_dotenv()
 
 warnings.filterwarnings("ignore")
 
+def format_authors(authors, max_authors=3):
+    """Format author list with et al. if too many authors"""
+    if not authors:
+        return "Unknown Author"
+    if len(authors) <= max_authors:
+        return ", ".join(authors)
+    return f"{', '.join(authors[:max_authors])} et al."
+
 class NotionDatabase:
     def __init__(self, integration_token, database_id):
         """
@@ -71,6 +79,10 @@ class NotionDatabase:
             print(f"❌ Connection error: {e}")
             return False, None
     
+    def format_authors(self, authors):
+        """Format author list with et al. if too many authors"""
+        return format_authors(authors)
+        
     def parse_markdown_to_rich_text(self, text):
         """Convert basic markdown to Notion rich text format"""
         if not text:
@@ -245,6 +257,15 @@ class NotionDatabase:
                 "date": {
                     "start": datetime.now().isoformat()
                 }
+            },
+            "Authors": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": self.format_authors(paper_data.get('authors', ['Unknown Author']))
+                        }
+                    }
+                ]
             }
         }
         

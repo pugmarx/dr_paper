@@ -250,7 +250,7 @@ class NotionDatabase:
             },
             "Status": {
                 "select": {
-                    "name": "To Read"  # Default status for new papers
+                    "name": "Queued"  # Default status for new papers (valid values: Queued, Reading, Read, Archived, Selected)
                 }
             },
             "Created": {

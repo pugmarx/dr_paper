@@ -1,326 +1,119 @@
 import feedparser
 from datetime import datetime, timedelta
 import time
-from functools import wraps
-
-class RateLimiter:
-    def __init__(self, calls_per_second=1/3):  # Default: 1 call per 3 seconds for arXiv
-        self.calls_per_second = calls_per_second
-        self.last_call = 0
-    
-    def wait(self):
-        """Wait if needed to respect rate limits"""
-        now = time.time()
-        time_since_last = now - self.last_call
-        time_to_wait = (1.0 / self.calls_per_second) - time_since_last
-        
-        if time_to_wait > 0:
-            time.sleep(time_to_wait)
-        
-        self.last_call = time.time()
-
-# Create rate limiters for different APIs
-arxiv_limiter = RateLimiter(calls_per_second=1/3)  # 1 request per 3 seconds
-semantic_limiter = RateLimiter(calls_per_second=1)  # 1 request per second
-
-def rate_limited(limiter):
-    """Decorator to apply rate limiting to functions"""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            limiter.wait()
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
+import requests
+import json
+import re
 
 # Define arXiv search query
-# TOPICS = [
-#     "large language model", "transformer", "rlhf",
-#      "alignment", "interpretability", "in-context learning", "multimodal LLM", "LLM reasoning", 
-#      "LLM alignment", "retrieval augmented generation"
-# ]
-
 TOPICS = [
-    "large language model", "transformer", "rlhf", "multimodal LLM", "LLM reasoning", 
-     "LLM alignment", "retrieval augmented generation"
+    "large language model", "transformer", "RLHF", "multimodal LLM", "LLM reasoning", 
+    "LLM alignment", "retrieval augmented generation", "foundation model"
 ]
 
 BASE_URL = "http://export.arxiv.org/api/query?"
-
 ARXIV_CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML"]
-
 EXCLUDE_KEYWORDS = ["3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry"]
 
+# High-impact organizations to boost paper scores
+HIGH_IMPACT_ORGS = [
+    "Google", "DeepMind", "Anthropic", "OpenAI", "Microsoft", "Meta", "Facebook",
+    "Stanford", "MIT", "Berkeley", "CMU", "NYU", "Toronto", "Oxford", "Cambridge"
+]
+
 def is_relevant(paper):
+    """Filter out irrelevant papers based on keywords"""
     title = paper["title"].lower()
-    summary = paper["summary"].lower()
+    summary = paper.get("summary", "").lower()
     return not any(bad in title or bad in summary for bad in EXCLUDE_KEYWORDS)
 
-
-def build_query(title_keywords, categories, max_results=5):
-    topic_part = "+OR+".join(f"ti:{kw.replace(' ', '+')}" for kw in title_keywords)
-    category_part = "+OR+".join(f"cat:{cat}" for cat in categories)
-    full_query = f"({topic_part})+AND+({category_part})"
-    return f"{BASE_URL}search_query={full_query}&sortBy=submittedDate&sortOrder=descending&max_results={max_results}"
-
-@rate_limited(arxiv_limiter)
-def fetch_arxiv_paper(url):
-    """Fetch a single paper from arXiv with rate limiting"""
-    return feedparser.parse(url)
-
-import requests
-from datetime import datetime
-
-def fetch_top_papers_semantic_scholar():
-    """
-    Use Semantic Scholar API to get top papers by citation count
-    This is the most reliable method for getting truly "top" papers
-    """
-    SS_API_BASE = "https://api.semanticscholar.org/graph/v1"
+def has_trending_keywords(title, abstract):
+    """Check if paper has trending/high-impact keywords"""
+    trending_keywords = [
+        'gpt', 'llm', 'large language model', 'transformer', 'attention',
+        'diffusion', 'stable diffusion', 'text-to-image', 'multimodal',
+        'reinforcement learning', 'rlhf', 'constitutional ai', 'alignment',
+        'few-shot', 'zero-shot', 'in-context learning', 'prompt',
+        'retrieval augmented', 'rag', 'vector database', 'embedding',
+        'fine-tuning', 'instruction tuning', 'chain-of-thought',
+        'reasoning', 'planning', 'agent', 'autonomous', 'tool use',
+        'code generation', 'copilot', 'programming', 'software engineering',
+        'computer vision', 'object detection', 'image segmentation',
+        'neural architecture search', 'efficient', 'compression', 'quantization',
+        'federated learning', 'privacy', 'differential privacy',
+        'graph neural network', 'knowledge graph', 'recommendation',
+        'time series', 'forecasting', 'anomaly detection',
+        'adversarial', 'robustness', 'interpretability', 'explainable ai'
+    ]
     
-    all_top_papers = []
-    
-    for topic in TOPICS:
-        print(f"Fetching top papers for: {topic}")
-        
-        # Search for papers on this topic, sorted by citation count
-        search_url = f"{SS_API_BASE}/paper/search"
-        params = {
-            "query": topic,
-            "limit": 10,  # Reduced from 20 to be more conservative
-            "fields": "title,abstract,url,citationCount,year,authors,externalIds,venue",
-            "sort": "citationCount:desc"  # Sort by citation count (highest first)
-        }
-        
-        # Add retry logic for rate limiting
-        max_retries = 3
-        retry_delay = 5  # Start with 5 seconds
-        
-        for attempt in range(max_retries):
-            try:
-                semantic_limiter.wait()  # Apply rate limiting
-                response = requests.get(search_url, params=params)
-                
-                if response.status_code == 429:  # Rate limited
-                    if attempt < max_retries - 1:
-                        wait_time = min(retry_delay * (2 ** attempt), 60)  # Cap at 60 seconds
-                        print(f"   Rate limited, waiting {wait_time} seconds before retry {attempt + 1}/{max_retries}")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        print(f"   Max retries reached for topic: {topic}")
-                        break
-                        
-                elif response.status_code == 200:
-                    data = response.json()
-                    
-                    topic_papers = []
-                    for paper in data.get('data', []):
-                        # Check if paper has arXiv ID
-                        external_ids = paper.get('externalIds', {})
-                        if external_ids and external_ids.get('ArXiv'):
-                            arxiv_id = external_ids['ArXiv']
-                            arxiv_url = f"https://arxiv.org/abs/{arxiv_id}"
-                            pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
-                            
-                            topic_papers.append({
-                                "title": paper['title'],
-                                "summary": paper.get('abstract', ''),
-                                "link": arxiv_url,
-                                "pdf_url": pdf_url,
-                                "published": str(paper.get('year', '')),
-                                "authors": [author['name'] for author in paper.get('authors', [])],
-                                "citation_count": paper.get('citationCount', 0),
-                                "topic": topic,
-                                "venue": paper.get('venue', '')
-                            })
-                    
-                    # Take top 3-5 papers per topic
-                    topic_papers.sort(key=lambda x: x['citation_count'], reverse=True)
-                    #all_top_papers.extend(topic_papers[:3])  # Top 3 per topic
-                    all_top_papers.extend(topic_papers[:2])  # Top 2 per topic
-                    
-                    # Success - break out of retry loop
-                    break
-                    
-                else:
-                    print(f"   Error fetching data for {topic}: {response.status_code}")
-                    if attempt < max_retries - 1:
-                        time.sleep(retry_delay)
-                        retry_delay *= 2
-                    else:
-                        break
-                        
-            except Exception as e:
-                print(f"   Error processing {topic}: {e}")
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay)
-                    retry_delay *= 2
-                else:
-                    break
-        
-        # Rate limiting between topics - increased from 1 to 3 seconds
-        time.sleep(3)
-    
-    # Sort all papers by citation count and return top ones
-    all_top_papers.sort(key=lambda x: x['citation_count'], reverse=True)
-    return all_top_papers[:10]  # Return top 10 overall
+    text = (title + " " + abstract).lower()
+    return any(keyword in text for keyword in trending_keywords)
 
-crossref_limiter = RateLimiter(calls_per_second=1/2)  # 1 request per 2 seconds
-
-def fetch_top_papers_crossref():
-    """
-    Alternative approach using CrossRef API
-    Good for getting citation data, but may have fewer arXiv papers
-    """
-    import requests
+def extract_arxiv_id(url_or_id):
+    """Extract arXiv ID from various formats"""
+    if not url_or_id:
+        return None
     
+    # Handle direct ID
+    if re.match(r'^\d{4}\.\d{4,5}(v\d+)?$', url_or_id):
+        return url_or_id
+    
+    # Handle URLs
+    match = re.search(r'(\d{4}\.\d{4,5})(v\d+)?', url_or_id)
+    return match.group(0) if match else None
+
+def count_versions(arxiv_id):
+    """Get number of versions for an arXiv paper"""
+    if not arxiv_id:
+        return 1
+    
+    try:
+        # Query arXiv API for paper details
+        url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            feed = feedparser.parse(response.text)
+            if feed.entries:
+                # Check if version info is in the ID
+                entry_id = feed.entries[0].id
+                version_match = re.search(r'v(\d+)$', entry_id)
+                return int(version_match.group(1)) if version_match else 1
+    except requests.RequestException:
+        pass
+    return 1
+
+def has_high_impact_authors(authors):
+    """Check if paper has authors from high-impact organizations"""
+    author_text = " ".join(authors).lower()
+    return any(org.lower() in author_text for org in HIGH_IMPACT_ORGS)
+
+
+
+def fetch_recent_papers_by_topic():
+    """Fetch recent papers from arXiv by topic"""
     all_papers = []
     
     for topic in TOPICS:
-        # CrossRef API search
-        url = "https://api.crossref.org/works"
-        params = {
-            "query": topic,
-            "rows": 20,
-            "sort": "is-referenced-by-count",  # Sort by citation count
-            "order": "desc"
-        }
+        print(f"Fetching papers for: {topic}")
+        
+        # Build query for this topic
+        query = f"all:{topic.replace(' ', '+')}"
+        url = f"{BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=10"
         
         try:
-            crossref_limiter.wait()  # Apply rate limiting
-            response = requests.get(url, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                
-                for item in data['message']['items']:
-                    # Look for arXiv papers
-                    if 'URL' in item:
-                        for url in item['URL']:
-                            if 'arxiv.org' in url:
-                                paper_id = url.split('/')[-1]
-                                all_papers.append({
-                                    "title": item['title'][0] if item.get('title') else '',
-                                    "summary": item.get('abstract', ''),
-                                    "link": f"https://arxiv.org/abs/{paper_id}",
-                                    "pdf_url": f"https://arxiv.org/pdf/{paper_id}.pdf",
-                                    "published": item.get('published-print', {}).get('date-parts', [['']])[0][0],
-                                    "authors": [f"{author.get('given', '')} {author.get('family', '')}" 
-                                              for author in item.get('author', [])],
-                                    "citation_count": item.get('is-referenced-by-count', 0),
-                                    "topic": topic
-                                })
-                                break
-            
-            time.sleep(1)  # Rate limiting
-            
-        except Exception as e:
-            print(f"Error with CrossRef for {topic}: {e}")
-            continue
-    
-    # Sort by citation count
-    all_papers.sort(key=lambda x: x['citation_count'], reverse=True)
-    return all_papers[:10]
-
-def fetch_top_papers_arxiv_enhanced():
-    """
-    Enhanced arXiv approach: fetch more papers and use external citation data
-    """
-    # First, get a larger set of papers from arXiv
-    papers_by_topic = {}
-    
-    for topic in TOPICS:
-        # Search with broader parameters
-        search_query = f"all:{topic}"
-        query_url = f"http://export.arxiv.org/api/query?search_query={search_query}&max_results=50&sortBy=submittedDate&sortOrder=descending"
-        
-        feed = feedparser.parse(query_url)
-        
-        topic_papers = []
-        for entry in feed.entries:
-            topic_papers.append({
-                "title": entry.title,
-                "summary": entry.summary,
-                "link": entry.link,
-                "pdf_url": next((l.href for l in entry.links if l.type == "application/pdf"), None),
-                "published": entry.published,
-                "authors": [author.name for author in entry.authors],
-                "topic": topic,
-                "arxiv_id": entry.id.split('/')[-1]
-            })
-        
-        papers_by_topic[topic] = topic_papers
-    
-    # Now enrich with citation data from Semantic Scholar
-    all_papers = []
-    for topic, papers in papers_by_topic.items():
-        for paper in papers[:10]:  # Check top 10 per topic
-            try:
-                # Get citation data from Semantic Scholar
-                ss_url = f"https://api.semanticscholar.org/graph/v1/paper/ARXIV:{paper['arxiv_id']}"
-                ss_params = {"fields": "citationCount,influentialCitationCount"}
-                
-                ss_response = requests.get(ss_url, params=ss_params)
-                if ss_response.status_code == 200:
-                    ss_data = ss_response.json()
-                    paper['citation_count'] = ss_data.get('citationCount', 0)
-                    paper['influential_citation_count'] = ss_data.get('influentialCitationCount', 0)
-                else:
-                    paper['citation_count'] = 0
-                    paper['influential_citation_count'] = 0
-                
-                all_papers.append(paper)
-                time.sleep(0.5)  # Rate limiting
-                
-            except Exception as e:
-                print(f"Error getting citation data for {paper['title']}: {e}")
-                paper['citation_count'] = 0
-                all_papers.append(paper)
-    
-    # Sort by citation count
-    all_papers.sort(key=lambda x: x['citation_count'], reverse=True)
-    return all_papers[:10]
-
-def fetch_trending_papers_fortnight():
-    """
-    Fetch papers trending in the last 14 days
-    Uses arXiv for recent papers + Semantic Scholar for citation velocity
-    """
-    from datetime import datetime, timedelta
-    
-    # Calculate date range (last 14 days)
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=14)
-    
-    # Format dates for arXiv API (YYYYMMDD format)
-    start_date_str = start_date.strftime("%Y%m%d")
-    end_date_str = end_date.strftime("%Y%m%d")
-    
-    print(f"Fetching trending papers from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-    
-    all_trending_papers = []
-    SS_API_BASE = "https://api.semanticscholar.org/graph/v1"
-    
-    for topic in TOPICS:
-        print(f"  Searching for: {topic}")
-        
-        # Build arXiv query with date filtering
-        topic_query = topic.replace(' ', '+')
-        query = f"all:{topic_query}+AND+submittedDate:[{start_date_str}+TO+{end_date_str}]"
-        
-        # Search arXiv for recent papers
-        arxiv_url = f"{BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=20"
-        
-        try:
-            feed = feedparser.parse(arxiv_url)
-            topic_papers = []
+            feed = feedparser.parse(url)
             
             for entry in feed.entries:
-                # Extract arXiv ID
-                arxiv_id = entry.id.split('/')[-1]
+                arxiv_id = extract_arxiv_id(entry.id)
                 
-                # Get paper details
-                paper_data = {
+                # Check if paper is recent (last 14 days)
+                published_date = datetime.strptime(entry.published, "%Y-%m-%dT%H:%M:%SZ")
+                days_ago = (datetime.now() - published_date).days
+                
+                if days_ago > 14:  # Skip papers older than 2 weeks
+                    continue
+                
+                paper = {
                     "title": entry.title,
                     "summary": entry.summary,
                     "link": entry.link,
@@ -328,146 +121,179 @@ def fetch_trending_papers_fortnight():
                     "published": entry.published,
                     "authors": [author.name for author in entry.authors],
                     "topic": topic,
-                    "arxiv_id": arxiv_id
+                    "arxiv_id": arxiv_id,
+                    "days_since_publication": days_ago
                 }
                 
-                # Calculate days since publication
-                pub_date = datetime.strptime(entry.published, "%Y-%m-%dT%H:%M:%SZ")
-                days_since_pub = (datetime.now() - pub_date).days
-                days_since_pub = max(1, days_since_pub)  # Avoid division by zero
-                
-                paper_data["days_since_publication"] = days_since_pub
-                topic_papers.append(paper_data)
+                if is_relevant(paper):
+                    all_papers.append(paper)
             
-            # Enrich with Semantic Scholar citation data
-            for paper in topic_papers[:10]:  # Limit to avoid rate limiting
-                try:
-                    # Get citation data from Semantic Scholar
-                    ss_url = f"{SS_API_BASE}/paper/ARXIV:{paper['arxiv_id']}"
-                    ss_params = {"fields": "citationCount,influentialCitationCount"}
-                    
-                    response = requests.get(ss_url, params=ss_params, timeout=10)
-                    if response.status_code == 200:
-                        ss_data = response.json()
-                        citation_count = ss_data.get('citationCount', 0)
-                        paper['citation_count'] = citation_count
-                        
-                        # Calculate trend score (citations per day)
-                        trend_score = citation_count / paper['days_since_publication']
-                        paper['trend_score'] = trend_score
-                    else:
-                        paper['citation_count'] = 0
-                        paper['trend_score'] = 0
-                    
-                    # Small delay to be nice to the API
-                    time.sleep(1)
-                    
-                except Exception as e:
-                    print(f"    Error getting citation data for {paper['title'][:50]}: {e}")
-                    paper['citation_count'] = 0
-                    paper['trend_score'] = 0
-            
-            all_trending_papers.extend(topic_papers)
-            
-            # Delay between topics
-            time.sleep(2)
+            # Small delay between topics
+            time.sleep(1)
             
         except Exception as e:
-            print(f"  Error processing {topic}: {e}")
+            print(f"Error fetching {topic}: {e}")
             continue
     
-    # Sort by trend score (citations per day) - this is the key trending metric
-    all_trending_papers.sort(key=lambda x: x['trend_score'], reverse=True)
-    
-    # If we don't have enough papers, fall back to broader date range
-    if len(all_trending_papers) < 5:
-        print("Not enough recent papers, expanding to last 30 days...")
-        # You could implement a 30-day fallback here if needed
-    
-    print(f"Found {len(all_trending_papers)} trending papers")
-    return all_trending_papers[:15]  # Return top 15 trending papers
+    return all_papers
 
-# Main function - choose your preferred approach
+def rank_papers(papers):
+    """
+    Rank recent arXiv papers based on relevance and quality heuristics.
+    Goal: fewer, better papers (high precision curation).
+    """
+
+    # === Configurable weights ===
+    weights = {
+        'versions': 1.0,          # multiple revisions = more iteration/interest
+        'high_impact_authors': 2.0,
+        'benchmark': 1.0,
+        'open_source': 1.0,
+        'trending_keywords': 2.0, # strong match to hot LLM-related ideas
+        'topic_overlap': 1.5,
+        'recency': 1.0
+    }
+
+    topics = [
+        "large language model", "multimodal", 
+        "reasoning", "retrieval augmented", "transformer"
+    ]
+    
+    blacklist_terms = [
+        "power transformer", "signal transformer", 
+        "circuit", "motor", "control system"
+    ]
+
+    for paper in papers:
+        score = 0
+        title = paper.get('title', '').strip()
+        abstract = paper.get('summary', '').lower()
+        authors = paper.get('authors', [])
+        days_old = paper.get('days_since_publication', 14)
+        arxiv_id = paper.get('arxiv_id')
+
+        # === 1. Filter out irrelevant papers early ===
+        if any(b in abstract for b in blacklist_terms):
+            paper['score'] = 0
+            paper['reason'] = "blacklisted"
+            continue
+
+        # === 2. Versions (more = refinement or traction) ===
+        num_versions = count_versions(arxiv_id)
+        if num_versions > 1:
+            score += weights['versions']
+            print(f" +{weights['versions']} for versions: {title[:60]}... ({num_versions} versions)")
+
+        # === 3. High-impact authors or affiliations ===
+        if has_high_impact_authors(authors):
+            score += weights['high_impact_authors']
+            print(f" +{weights['high_impact_authors']} for high-impact authors: {title[:60]}...")
+
+        # === 4. Benchmark mentions ===
+        if 'benchmark' in abstract:
+            score += weights['benchmark']
+            print(f" +{weights['benchmark']} for benchmark: {title[:60]}...")
+
+        # === 5. Open-source mentions ===
+        if 'open-source' in abstract or 'open source' in abstract:
+            score += weights['open_source']
+            print(f" +{weights['open_source']} for open-source: {title[:60]}...")
+
+        # === 6. Trending LLM-related keywords ===
+        if has_trending_keywords(title, abstract):
+            score += weights['trending_keywords']
+            print(f" +{weights['trending_keywords']} for trending keywords: {title[:60]}...")
+
+        # === 7. Topic overlap bonus ===
+        topic_hits = sum(t in abstract for t in topics)
+        if topic_hits >= 2:
+            score += weights['topic_overlap']
+            print(f" +{weights['topic_overlap']} for multi-topic relevance: {title[:60]}...")
+
+        # === 8. Recency (mild freshness boost) ===
+        if days_old <= 3:
+            score += weights['recency']
+            print(f" +{weights['recency']} for very recent: {title[:60]}... ({days_old} days)")
+        elif days_old <= 7:
+            score += weights['recency'] * 0.5
+            print(f" +{weights['recency'] * 0.5} for recent: {title[:60]}... ({days_old} days)")
+
+        # === 9. Damp recency if overall weak ===
+        if score < 2:
+            score *= 0.8  # weak papers shouldn't ride recency bonus
+
+        paper['score'] = round(score, 2)
+        paper['reason'] = "ranked"
+        print(f"Total Score: {paper['score']} | {title[:60]}...")
+
+    # === 10. Final sort and selection ===
+    ranked = [p for p in papers if p.get('reason') == 'ranked']
+    ranked_sorted = sorted(ranked, key=lambda x: x.get('score', 0), reverse=True)
+    top_papers = ranked_sorted[:10]
+
+    print("\n=== Top Papers ===")
+    for p in top_papers:
+        print(f"{p['score']:>4}  |  {p['title'][:80]}")
+
+    return top_papers
+
+
+def remove_duplicates(papers):
+    """Remove duplicate papers based on title similarity"""
+    unique_papers = []
+    seen_titles = set()
+    
+    for paper in papers:
+        title_key = paper['title'].lower().strip()
+        if title_key not in seen_titles:
+            seen_titles.add(title_key)
+            unique_papers.append(paper)
+    
+    return unique_papers
+
 def fetch_daily_papers():
-    """
-    Modified function to get trending papers from the last 14 days
-    """
-    print("Fetching trending papers from the last fortnight...")
+    """Main function to fetch and rank papers"""
+    print("Fetching trending papers...")
     
-    # Method 1: Trending papers (Primary method)
-    try:
-        return fetch_trending_papers_fortnight()
-    except Exception as e:
-        print(f"Trending papers failed: {e}")
-        
-    # Method 2: Fallback to Semantic Scholar top papers
-    try:
-        print("Falling back to top cited papers...")
-        return fetch_top_papers_semantic_scholar()
-    except Exception as e:
-        print(f"Semantic Scholar failed: {e}")
-        
-    # Method 3: Final fallback - just recent papers
-    print("Falling back to recent papers...")
-    query_url = build_query(TOPICS, ARXIV_CATEGORIES, max_results=10)
-    feed = feedparser.parse(query_url)
+    all_papers = []
     
-    papers = []
-    for entry in feed.entries:
-        papers.append({
-            "title": entry.title,
-            "summary": entry.summary,
-            "link": entry.link,
-            "pdf_url": next((l.href for l in entry.links if l.type == "application/pdf"), None),
-            "published": entry.published,
-            "authors": [author.name for author in entry.authors],
-            "citation_count": 0  # Unknown
-        })
+    # Fetch recent papers by topic (our primary method)
+    topic_papers = fetch_recent_papers_by_topic()
+    if topic_papers:
+        print(f"Found {len(topic_papers)} papers from topic search")
+        all_papers.extend(topic_papers)
     
-    return papers
+    # Remove duplicates
+    all_papers = remove_duplicates(all_papers)
+    print(f"After deduplication: {len(all_papers)} papers")
+    
+    # Rank papers
+    print("\\nRanking papers...")
+    ranked_papers = rank_papers(all_papers)
+    
+    # Return top papers
+    top_papers = ranked_papers[:15]  # Top 15 papers
+    print(f"\\nReturning top {len(top_papers)} papers")
+    
+    return top_papers
 
-# Optional: Add citation threshold filtering
-def filter_high_impact_papers(papers, min_citations=100):
-    """
-    Filter papers to only include those with high citation counts
-    """
-    return [p for p in papers if p.get('citation_count', 0) >= min_citations]
-
-
+# For backwards compatibility
 def _fetch_daily_papers():
-    query_url = build_query(TOPICS, ARXIV_CATEGORIES, max_results=10)
-	#query_url = build_query(TOPICS, max_results=5)
-    feed = feedparser.parse(query_url)
+    """Legacy function - use fetch_daily_papers() instead"""
+    return fetch_daily_papers()
 
-    papers = []
-    for entry in feed.entries:
-        papers.append({
-            "title": entry.title,
-            "summary": entry.summary,
-            "link": entry.link,
-            "pdf_url": next((l.href for l in entry.links if l.type == "application/pdf"), None),
-            "published": entry.published,
-            "authors": [author.name for author in entry.authors]
-        })
-    return papers
-
-# Example usage
 if __name__ == "__main__":
-    #raw_papers = fetch_filtered_papers()
-    raw_papers = fetch_daily_papers()
-    papers = [p for p in raw_papers if is_relevant(p)]
-    for i, p in enumerate(papers):
-        print(f"\n{i+1}. {p['title']}")
-        print(f"Published: {p['published']}")
-        print(f"Authors: {', '.join(p['authors'])}")
-        
-        # Show trending metrics if available
-        if 'trend_score' in p:
-            print(f"Trend Score: {p['trend_score']:.3f} (citations/day)")
-            print(f"Citations: {p.get('citation_count', 0)}")
-            print(f"Days since publication: {p.get('days_since_publication', 'N/A')}")
-        
-        print(f"PDF: {p['pdf_url']}")
-        print(f"Link: {p['link']}")
-        print(f"Abstract: {p['summary'][:300]}...\n")
-
+    papers = fetch_daily_papers()
+    
+    print("\\n" + "="*80)
+    print("TOP RANKED PAPERS")
+    print("="*80)
+    
+    for i, paper in enumerate(papers, 1):
+        print(f"\\n{i}. {paper['title']}")
+        print(f"   Score: {paper.get('score', 0)}")
+        print(f"   Topic: {paper.get('topic', 'N/A')}")
+        print(f"   Authors: {', '.join(paper.get('authors', [])[:3])}{'...' if len(paper.get('authors', [])) > 3 else ''}")
+        print(f"   Published: {paper.get('published', 'N/A')}")
+        print(f"   Link: {paper.get('link', 'N/A')}")
+        print(f"   Abstract: {paper.get('summary', '')[:200]}...")

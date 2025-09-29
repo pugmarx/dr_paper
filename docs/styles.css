@@ -59,23 +59,28 @@
     margin-left: 0.5rem;
 }
 
-.status-to-read {
-    background-color: var(--text-muted);
+.status-queued {
+    background-color: var(--text-muted);  /* gray */
     color: var(--bg-primary);
 }
 
 .status-reading {
-    background-color: var(--accent-color);
+    background-color: var(--accent-color);  /* orange */
     color: var(--bg-primary);
 }
 
-.status-published {
+.status-read {
     background-color: #22c55e;  /* green */
     color: var(--bg-primary);
 }
 
-.status-discarded {
-    background-color: #ef4444;  /* red */
+.status-archived {
+    background-color: #6b7280;  /* darker gray */
+    color: var(--bg-primary);
+}
+
+.status-selected {
+    background-color: #8b5cf6;  /* purple */
     color: var(--bg-primary);
 }
 

@@ -23,9 +23,9 @@ BLOG_PROMPT="You are writing for a technical blog audience. Summarize this resea
     Structure your response as:
     1. What problem does this solve? (1-2 sentences)
     2. Key innovation or approach (2-3 sentences)
-    3. Why it matters / Impact (1-2 sentences)
+    3. Why it matters / Impact (2-5 sentences)
 
-    Write in an accessible but technical tone. Avoid jargon when possible."
+    Write in an accessible but technical tone. Avoid jargon when possible. The response should have headings as listed above prefixed and suffixed with '***'"
 
 SUMMARY_PROMPT="Provide a comprehensive summary of this research paper including:
     - Main research question and motivation

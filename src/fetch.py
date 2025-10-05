@@ -13,12 +13,14 @@ TOPICS = [
 
 BASE_URL = "http://export.arxiv.org/api/query?"
 ARXIV_CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML"]
-EXCLUDE_KEYWORDS = ["3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry"]
+EXCLUDE_KEYWORDS = ["3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry", 
+                 "video", "temporal", "frame sequence", "motion", "surveillance", "vlog"]
 
 # High-impact organizations to boost paper scores
 HIGH_IMPACT_ORGS = [
     "Google", "DeepMind", "Anthropic", "OpenAI", "Microsoft", "Meta", "Facebook",
-    "Stanford", "MIT", "Berkeley", "CMU", "NYU", "Toronto", "Oxford", "Cambridge"
+    "Hugging Face", "HuggingFace", "Stanford", "MIT", "Berkeley", "CMU", "NYU", 
+    "Toronto", "Oxford", "Cambridge"
 ]
 
 def is_relevant(paper):
@@ -161,7 +163,7 @@ def rank_papers(papers):
     
     blacklist_terms = [
         "power transformer", "signal transformer", 
-        "circuit", "motor", "control system"
+        "circuit", "motor", "control system", "3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry"
     ]
 
     for paper in papers:

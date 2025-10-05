@@ -229,34 +229,60 @@ class PapersWebsite {
         
         // Format Notion's rich text blocks to HTML
         const formatRichText = (richText) => {
-            if (typeof richText === 'string') {
-                // Handle legacy plain text format
-                return richText.split('\n\n').map(para => `<p>${para.trim()}</p>`).join('');
+            try {
+                // If it's a plain string
+                if (typeof richText === 'string') {
+                    return richText.split('\n\n').map(para => `<p>${para.trim()}</p>`).join('');
+                }
+                
+                // If it's not an array, convert to string
+                if (!Array.isArray(richText)) {
+                    return `<p>${String(richText)}</p>`;
+                }
+                
+                // Handle Notion's rich text format
+                return richText.map(block => {
+                    // If block is a string, wrap it in a paragraph
+                    if (typeof block === 'string') {
+                        return `<p>${block}</p>`;
+                    }
+                    
+                    // Handle Notion rich text block format
+                    if (block.text && block.text.content) {
+                        let content = block.text.content;
+                        const annotations = block.annotations || {};
+                        
+                        // Apply text decorations based on annotations
+                        if (annotations.bold) content = `<strong>${content}</strong>`;
+                        if (annotations.italic) content = `<em>${content}</em>`;
+                        if (annotations.strikethrough) content = `<del>${content}</del>`;
+                        if (annotations.underline) content = `<u>${content}</u>`;
+                        if (annotations.code) content = `<code>${content}</code>`;
+                        
+                        return content;
+                    }
+                    
+                    // Fallback for unknown block format
+                    return '';
+                }).filter(content => content).join('');
+            } catch (error) {
+                console.error('Error formatting rich text:', error);
+                return '<p>Error displaying summary</p>';
             }
-            
-            // Handle Notion's rich text format
-            return richText.map(block => {
-                let content = block.text.content;
-                const annotations = block.annotations || {};
-                
-                // Apply text decorations based on annotations
-                if (annotations.bold) content = `<strong>${content}</strong>`;
-                if (annotations.italic) content = `<em>${content}</em>`;
-                if (annotations.strikethrough) content = `<del>${content}</del>`;
-                if (annotations.underline) content = `<u>${content}</u>`;
-                if (annotations.code) content = `<code>${content}</code>`;
-                
-                return content;
-            }).join('');
+        };
         
         const formattedSummary = formatRichText(summary);
-        const isLong = formattedSummary.length > previewLength;
+        const textContent = formattedSummary.replace(/<[^>]+>/g, ''); // Strip HTML for length check
+        const isLong = textContent.length > previewLength;
         
         if (isLong) {
             // For preview, show a shorter version
-            const previewText = formattedSummary.substring(0, previewLength) + '...';
-            summaryPreview.innerHTML = `<p>${previewText}</p>`;
-            summaryFull.innerHTML = `<p>${formattedSummary}</p>`;
+            summaryPreview.innerHTML = `<p>${textContent.substring(0, previewLength)}...</p>`;
+            summaryFull.innerHTML = formattedSummary;
+        } else {
+            summaryPreview.innerHTML = formattedSummary;
+            summaryFull.innerHTML = formattedSummary;
+        }
             
             readMoreBtn.addEventListener('click', () => {
                 const isExpanded = summaryFull.style.display !== 'none';

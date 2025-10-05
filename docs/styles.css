@@ -332,11 +332,41 @@ body {
     margin-bottom: 1.5rem;
 }
 
-.summary-preview,
-.summary-full {
+.summary-preview, .summary-full {
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
+}
+
+/* Rich text formatting */
+.summary-preview p, .summary-full p {
+    margin-bottom: 1rem;
+}
+
+.summary-preview strong, .summary-full strong {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.summary-preview em, .summary-full em {
+    font-style: italic;
+}
+
+.summary-preview code, .summary-full code {
+    font-family: monospace;
+    background: var(--bg-tertiary);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.summary-preview u, .summary-full u {
+    text-decoration: underline;
+}
+
+.summary-preview del, .summary-full del {
+    text-decoration: line-through;
+    opacity: 0.7;
 }
 
 .summary-full {

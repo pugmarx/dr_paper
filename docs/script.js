@@ -219,27 +219,44 @@ class PapersWebsite {
         
         card.querySelector('.paper-authors').textContent = paper.authors.join(', ');
         
-        // Handle summary with read more functionality
+        // Handle summary with read more functionality and rich text formatting
         const summary = paper.summary;
         const previewLength = 200;
-        const isLong = summary.length > previewLength;
         
         const summaryPreview = card.querySelector('.summary-preview');
         const summaryFull = card.querySelector('.summary-full');
         const readMoreBtn = card.querySelector('.read-more-btn');
         
-        // Convert string paragraphs to HTML paragraphs
-        const formatSummary = (text) => {
-            return text.split('\n\n').map(para => `<p>${para.trim()}</p>`).join('');
-        };
+        // Format Notion's rich text blocks to HTML
+        const formatRichText = (richText) => {
+            if (typeof richText === 'string') {
+                // Handle legacy plain text format
+                return richText.split('\n\n').map(para => `<p>${para.trim()}</p>`).join('');
+            }
+            
+            // Handle Notion's rich text format
+            return richText.map(block => {
+                let content = block.text.content;
+                const annotations = block.annotations || {};
+                
+                // Apply text decorations based on annotations
+                if (annotations.bold) content = `<strong>${content}</strong>`;
+                if (annotations.italic) content = `<em>${content}</em>`;
+                if (annotations.strikethrough) content = `<del>${content}</del>`;
+                if (annotations.underline) content = `<u>${content}</u>`;
+                if (annotations.code) content = `<code>${content}</code>`;
+                
+                return content;
+            }).join('');
+        
+        const formattedSummary = formatRichText(summary);
+        const isLong = formattedSummary.length > previewLength;
         
         if (isLong) {
-            // For preview, use only the first paragraph
-            const firstParagraph = summary.split('\n\n')[0];
-            summaryPreview.innerHTML = firstParagraph.length > previewLength ? 
-                firstParagraph.substring(0, previewLength) + '...' : 
-                firstParagraph;
-            summaryFull.innerHTML = formatSummary(summary);
+            // For preview, show a shorter version
+            const previewText = formattedSummary.substring(0, previewLength) + '...';
+            summaryPreview.innerHTML = `<p>${previewText}</p>`;
+            summaryFull.innerHTML = `<p>${formattedSummary}</p>`;
             
             readMoreBtn.addEventListener('click', () => {
                 const isExpanded = summaryFull.style.display !== 'none';

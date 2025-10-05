@@ -279,11 +279,13 @@ class PapersWebsite {
             // For preview, show a shorter version
             summaryPreview.innerHTML = `<p>${textContent.substring(0, previewLength)}...</p>`;
             summaryFull.innerHTML = formattedSummary;
-        } else {
-            summaryPreview.innerHTML = formattedSummary;
-            summaryFull.innerHTML = formattedSummary;
-        }
             
+            // Initialize summary state
+            summaryPreview.style.display = 'block';
+            summaryFull.style.display = 'none';
+            readMoreBtn.querySelector('.read-more-text').textContent = 'Read more';
+            
+            // Set up read more/less functionality
             readMoreBtn.addEventListener('click', () => {
                 const isExpanded = summaryFull.style.display !== 'none';
                 
@@ -300,7 +302,9 @@ class PapersWebsite {
                 }
             });
         } else {
-            summaryPreview.textContent = summary;
+            // For short summaries, just show the full content
+            summaryPreview.innerHTML = formattedSummary;
+            summaryFull.style.display = 'none';
             readMoreBtn.style.display = 'none';
         }
         

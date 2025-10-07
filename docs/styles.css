@@ -66,19 +66,26 @@
     position: relative;
 }
 
-.paper-card.pinned {
+.paper-card {
+    position: relative;
+}
+
+/* Enhanced styles for papers being read */
+.paper-card[data-status="Reading"] {
     border-left: 4px solid var(--accent-color);
     background: var(--bg-secondary);
-    order: -1;  /* Makes pinned cards appear first */
+    order: -1;  /* Makes Reading papers appear first */
+    position: relative;
 }
 
-.pin-btn {
-    transition: transform 0.2s ease;
-}
-
-.pin-btn.pinned {
-    color: var(--accent-color);
-    transform: rotate(45deg);
+.paper-card[data-status="Reading"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -4px;
+    height: 100%;
+    width: 4px;
+    background-color: var(--accent-color);
 }
 
 /* Paper status styles */

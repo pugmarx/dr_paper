@@ -214,6 +214,10 @@ class PapersWebsite {
         const template = document.getElementById('paperCardTemplate');
         const card = template.content.cloneNode(true);
         
+        // Get the article element and set status attribute
+        const articleElem = card.querySelector('article');
+        articleElem.setAttribute('data-status', paper.status);
+        
         // Fill in the data
         card.querySelector('.paper-title').textContent = paper.title;
         card.querySelector('.paper-date').textContent = new Date(paper.date).toLocaleDateString();

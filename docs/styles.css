@@ -49,6 +49,38 @@
 
 /* Base styles */
 
+/* Pinned paper styles */
+.papers-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.paper-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.paper-card.pinned {
+    border-left: 4px solid var(--accent-color);
+    background: var(--bg-secondary);
+    order: -1;  /* Makes pinned cards appear first */
+}
+
+.pin-btn {
+    transition: transform 0.2s ease;
+}
+
+.pin-btn.pinned {
+    color: var(--accent-color);
+    transform: rotate(45deg);
+}
+
 /* Paper status styles */
 .paper-status {
     display: inline-block;
@@ -67,6 +99,12 @@
 .status-reading {
     background-color: var(--accent-color);  /* orange */
     color: var(--bg-primary);
+}
+
+/* Style for papers being read */
+.paper-card:has(.status-reading) {
+    border-left: 4px solid var(--accent-color);
+    background: var(--bg-secondary);
 }
 
 .status-read {

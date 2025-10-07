@@ -12,7 +12,7 @@ TOPICS = [
 ]
 
 BASE_URL = "http://export.arxiv.org/api/query?"
-ARXIV_CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML"]
+ARXIV_CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML", "cs.SE"]
 EXCLUDE_KEYWORDS = ["3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry", 
                  "video", "temporal", "frame sequence", "motion", "surveillance", "vlog"]
 
@@ -139,22 +139,94 @@ def fetch_recent_papers_by_topic():
     
     return all_papers
 
+def score_paper(paper):
+    """Calculate a comprehensive relevance score for a paper"""
+    score = 0.0
+    title = paper["title"].lower()
+    summary = paper.get("summary", "").lower()
+    combined_text = f"{title} {summary}"
+    
+    # Core topic relevance (0-3 points)
+    core_topics = {
+        'large language model': 3.0,
+        'llm': 3.0,
+        'foundation model': 2.5,
+        'transformer': 2.0,
+        'rlhf': 2.5,
+        'alignment': 2.0,
+        'constitutional ai': 2.5,
+        'reasoning': 2.0
+    }
+    core_score = sum(points for topic, points in core_topics.items() 
+                    if topic in combined_text)
+    score += min(core_score, 3.0)  # Cap at 3 points
+    
+    # Author impact (0-2 points)
+    if has_high_impact_authors(paper["authors"]):
+        score += 2.0
+    
+    # Title quality indicators (0-1 point)
+    quality_markers = [
+        'improving', 'enhanced', 'better', 'efficient',
+        'novel', 'new approach', 'framework', 'towards',
+        'understanding', 'learning to', 'beyond'
+    ]
+    if any(marker in title for marker in quality_markers):
+        score += 0.5
+    
+    # Version and maturity (0-1 point)
+    version_count = count_versions(paper.get("arxiv_id"))
+    if version_count > 1:
+        score += 0.5
+    
+    # Recent citation or reference bonuses
+    if any(ref in combined_text.lower() for ref in [
+        'gpt-4', 'claude', 'gemini', 'palm-2', 'llama'
+    ]):
+        score += 0.5
+        
+    return round(score, 2)
+
 def rank_papers(papers):
     """
     Rank recent arXiv papers based on relevance and quality heuristics.
     Goal: fewer, better papers (high precision curation).
     """
-
-    # === Configurable weights ===
+    # Group papers by date
+    papers_by_date = {}
+    for paper in papers:
+        date = paper["published"][:10]  # YYYY-MM-DD
+        if date not in papers_by_date:
+            papers_by_date[date] = []
+        papers_by_date[date].append(paper)
+    
+    # Scoring weights for different paper attributes
     weights = {
-        'versions': 1.0,          # multiple revisions = more iteration/interest
-        'high_impact_authors': 2.0,
-        'benchmark': 1.0,
-        'open_source': 1.0,
-        'trending_keywords': 2.0, # strong match to hot LLM-related ideas
-        'topic_overlap': 1.5,
-        'recency': 1.0
+        'versions': 1.0,          # Multiple versions indicate refinement/interest
+        'high_impact_authors': 2.0,  # Papers from top institutions/authors
+        'benchmark': 1.0,         # Papers introducing/using benchmarks
+        'open_source': 1.0,       # Open source implementations
+        'trending_keywords': 2.0,  # Match to hot LLM-related topics
+        'topic_overlap': 1.5,     # Papers covering multiple relevant topics
+        'recency': 1.0           # Boost for very recent papers
     }
+    
+    ranked_papers = []
+    MAX_PAPERS_PER_DAY = 5
+    
+    # Process each day's papers
+    for date, day_papers in papers_by_date.items():
+        # Score all papers for this day
+        scored_papers = []
+        for paper in day_papers:
+            score = score_paper(paper)
+            paper['score'] = score
+            scored_papers.append(paper)
+            print(f"Score: {score:>4.1f} | {paper['title'][:60]}...")
+        
+        # Sort by score and take top N
+        scored_papers.sort(key=lambda x: x['score'], reverse=True)
+        ranked_papers.extend(scored_papers[:MAX_PAPERS_PER_DAY])
 
     topics = [
         "large language model", "multimodal", 
@@ -273,9 +345,17 @@ def fetch_daily_papers():
     print("\\nRanking papers...")
     ranked_papers = rank_papers(all_papers)
     
-    # Return top papers
-    top_papers = ranked_papers[:15]  # Top 15 papers
-    print(f"\\nReturning top {len(top_papers)} papers")
+    # Only return papers above minimum score threshold
+    MIN_SCORE = 2.0  # Minimum score to be considered
+    filtered_papers = [p for p in ranked_papers if p['score'] >= MIN_SCORE]
+    
+    # Cap total papers at 15, but usually will be less due to daily limits
+    top_papers = filtered_papers[:15]
+    
+    print("\n=== Final Paper Selection ===")
+    print(f"Total papers selected: {len(top_papers)}")
+    for p in top_papers:
+        print(f"{p['score']:>4.1f} | {p['title'][:80]}")
     
     return top_papers
 

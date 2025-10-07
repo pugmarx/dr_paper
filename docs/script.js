@@ -176,8 +176,15 @@ class PapersWebsite {
             return matchesSearch && matchesTopic;
         });
         
-        // Sort by date in decreasing order (newest first)
-        this.filteredPapers.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // First sort by status (Reading papers first), then by date
+        this.filteredPapers.sort((a, b) => {
+            // First prioritize Reading status
+            if (a.status === 'Reading' && b.status !== 'Reading') return -1;
+            if (b.status === 'Reading' && a.status !== 'Reading') return 1;
+            
+            // Then sort by date within each group
+            return new Date(b.date) - new Date(a.date);
+        });
         
         this.renderPapers();
     }

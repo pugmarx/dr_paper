@@ -7,7 +7,7 @@ A command-line tool for analyzing research papers using RAG (Retrieval-Augmented
 ## Features
 
 - Analyze PDF research papers with local LLMs
-- Fetch trending papers from arXiv (last 14 days)
+- Fetch trending papers from arXiv (last 14 days) 
 - Multiple prompt types (blog, technical, summary, comparison)
 - Optional Notion database integration
 

@@ -28,11 +28,14 @@ HIGH_IMPACT_ORGS = [
     "toronto", "oxford", "cambridge", "princeton", "washington", "allen institute"
 ]
 
-# Blacklist terms to filter out non-AI domains
+# Blacklist terms to filter out non-AI and niche biological/clinical domains
 BLACKLIST_TERMS = [
     "power transformer", "signal transformer", "circuit", "motor", 
     "control system", "point cloud", "rgb-d", "reconstruction", 
-    "scene reconstruction", "vlog", "surveillance"
+    "scene reconstruction", "vlog", "surveillance", "cell segmentation",
+    "histopathology", "cytology", "ct scan", "mri segmentation",
+    "ultrasound", "microscopy", "colonoscopy", "fluid dynamics",
+    "battery", "power grid", "lesion detection", "tumor segmentation"
 ]
 
 # High-impact keywords in AI/LLM research
@@ -166,7 +169,9 @@ def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -
     newsletter_ids = fetch_newsletter_curated_arxiv_ids()
 
     for topic in topics_to_search:
-        query = f"all:{topic.replace(' ', '+')}"
+        # Restrict specifically to Computer Science AI/ML categories
+        topic_term = topic.replace(' ', '+')
+        query = f"(cat:cs.CL+OR+cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CV)+AND+(ti:%22{topic_term}%22+OR+abs:%22{topic_term}%22)"
         url = f"{ARXIV_BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=10"
         
         try:
@@ -174,6 +179,12 @@ def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -
             for entry in feed.entries:
                 arxiv_id, version = extract_arxiv_id_and_version(entry.id)
                 if not arxiv_id:
+                    continue
+
+                clean_title = re.sub(r'\s+', ' ', entry.title).strip()
+                clean_summary = re.sub(r'\s+', ' ', entry.summary).strip()
+
+                if is_blacklisted(clean_title, clean_summary):
                     continue
 
                 try:
@@ -187,8 +198,6 @@ def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -
                     continue
 
                 pdf_link = next((l.href for l in getattr(entry, "links", []) if getattr(l, "type", "") == "application/pdf"), f"https://arxiv.org/pdf/{arxiv_id}.pdf")
-                clean_title = re.sub(r'\s+', ' ', entry.title).strip()
-                clean_summary = re.sub(r'\s+', ' ', entry.summary).strip()
                 author_names = [a.name for a in getattr(entry, "authors", []) if hasattr(a, "name")]
 
                 is_in_newsletter = arxiv_id in newsletter_ids

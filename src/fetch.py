@@ -1,381 +1,338 @@
-import feedparser
-from datetime import datetime, timedelta
-import time
-import requests
-import json
 import re
+import time
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Set
+import feedparser
+import requests
 
-# Define arXiv search query
+from config import config
+
+# arXiv Search Topics & Configurations
 TOPICS = [
-    "large language model", "transformer", "RLHF", "multimodal LLM", "LLM reasoning", 
-    "LLM alignment", "retrieval augmented generation", "foundation model"
+    "large language model", "transformer", "RLHF", "multimodal LLM", 
+    "LLM reasoning", "LLM alignment", "retrieval augmented generation", 
+    "foundation model", "autonomous agent", "code generation"
 ]
 
-BASE_URL = "http://export.arxiv.org/api/query?"
-ARXIV_CATEGORIES = ["cs.CL", "cs.LG", "cs.AI", "stat.ML", "cs.SE"]
-EXCLUDE_KEYWORDS = ["3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry", 
-                 "video", "temporal", "frame sequence", "motion", "surveillance", "vlog"]
+ARXIV_BASE_URL = "http://export.arxiv.org/api/query?"
+HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
+SUBSTACK_NEWSLETTER_FEEDS = [
+    "https://lastweekinai.substack.com/feed",
+    "https://importai.substack.com/feed"
+]
 
 # High-impact organizations to boost paper scores
 HIGH_IMPACT_ORGS = [
-    "Google", "DeepMind", "Anthropic", "OpenAI", "Microsoft", "Meta", "Facebook",
-    "Hugging Face", "HuggingFace", "Stanford", "MIT", "Berkeley", "CMU", "NYU", 
-    "Toronto", "Oxford", "Cambridge"
+    "google", "deepmind", "anthropic", "openai", "microsoft", "meta", "facebook",
+    "hugging face", "huggingface", "stanford", "mit", "berkeley", "cmu", "nyu", 
+    "toronto", "oxford", "cambridge", "princeton", "washington", "allen institute"
 ]
 
-def is_relevant(paper):
-    """Filter out irrelevant papers based on keywords"""
-    title = paper["title"].lower()
-    summary = paper.get("summary", "").lower()
-    return not any(bad in title or bad in summary for bad in EXCLUDE_KEYWORDS)
+# Blacklist terms to filter out non-AI domains
+BLACKLIST_TERMS = [
+    "power transformer", "signal transformer", "circuit", "motor", 
+    "control system", "point cloud", "rgb-d", "reconstruction", 
+    "scene reconstruction", "vlog", "surveillance"
+]
 
-def has_trending_keywords(title, abstract):
-    """Check if paper has trending/high-impact keywords"""
-    trending_keywords = [
-        'gpt', 'llm', 'large language model', 'transformer', 'attention',
-        'diffusion', 'stable diffusion', 'text-to-image', 'multimodal',
-        'reinforcement learning', 'rlhf', 'constitutional ai', 'alignment',
-        'few-shot', 'zero-shot', 'in-context learning', 'prompt',
-        'retrieval augmented', 'rag', 'vector database', 'embedding',
-        'fine-tuning', 'instruction tuning', 'chain-of-thought',
-        'reasoning', 'planning', 'agent', 'autonomous', 'tool use',
-        'code generation', 'copilot', 'programming', 'software engineering',
-        'computer vision', 'object detection', 'image segmentation',
-        'neural architecture search', 'efficient', 'compression', 'quantization',
-        'federated learning', 'privacy', 'differential privacy',
-        'graph neural network', 'knowledge graph', 'recommendation',
-        'time series', 'forecasting', 'anomaly detection',
-        'adversarial', 'robustness', 'interpretability', 'explainable ai'
-    ]
-    
-    text = (title + " " + abstract).lower()
-    return any(keyword in text for keyword in trending_keywords)
+# High-impact keywords in AI/LLM research
+TRENDING_KEYWORDS = [
+    'gpt', 'llm', 'large language model', 'transformer', 'attention',
+    'diffusion', 'text-to-image', 'multimodal', 'vision-language',
+    'reinforcement learning', 'rlhf', 'rlaif', 'alignment',
+    'few-shot', 'zero-shot', 'in-context learning', 'prompt',
+    'retrieval augmented', 'rag', 'vector database', 'embedding',
+    'fine-tuning', 'instruction tuning', 'chain-of-thought',
+    'reasoning', 'planning', 'agent', 'autonomous', 'tool use',
+    'code generation', 'software engineering', 'quantization',
+    'speculative decoding', 'long context', 'mixture of experts', 'moe',
+    'interpretability', 'mechanistic interpretability', 'benchmark'
+]
 
-def extract_arxiv_id(url_or_id):
-    """Extract arXiv ID from various formats"""
+def extract_arxiv_id_and_version(url_or_id: str) -> tuple[Optional[str], int]:
+    """Extract arXiv base ID and version number from string without extra network requests."""
     if not url_or_id:
-        return None
+        return None, 1
     
-    # Handle direct ID
-    if re.match(r'^\d{4}\.\d{4,5}(v\d+)?$', url_or_id):
-        return url_or_id
-    
-    # Handle URLs
-    match = re.search(r'(\d{4}\.\d{4,5})(v\d+)?', url_or_id)
-    return match.group(0) if match else None
+    match = re.search(r'(\d{4}\.\d{4,5})(?:v(\d+))?', url_or_id)
+    if match:
+        base_id = match.group(1)
+        version = int(match.group(2)) if match.group(2) else 1
+        return base_id, version
+    return None, 1
 
-def count_versions(arxiv_id):
-    """Get number of versions for an arXiv paper"""
-    if not arxiv_id:
-        return 1
-    
-    try:
-        # Query arXiv API for paper details
-        url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            feed = feedparser.parse(response.text)
-            if feed.entries:
-                # Check if version info is in the ID
-                entry_id = feed.entries[0].id
-                version_match = re.search(r'v(\d+)$', entry_id)
-                return int(version_match.group(1)) if version_match else 1
-    except requests.RequestException:
-        pass
-    return 1
+def get_current_edition_tag() -> str:
+    """Return the current ISO week tag e.g. '2026-W36'"""
+    now = datetime.utcnow()
+    year, week, _ = now.isocalendar()
+    return f"{year}-W{week:02d}"
 
-def has_high_impact_authors(authors):
-    """Check if paper has authors from high-impact organizations"""
+def has_high_impact_authors(authors: List[str]) -> bool:
+    """Check if any author belongs to a top institution"""
     author_text = " ".join(authors).lower()
-    return any(org.lower() in author_text for org in HIGH_IMPACT_ORGS)
+    return any(org in author_text for org in HIGH_IMPACT_ORGS)
 
+def is_blacklisted(title: str, summary: str) -> bool:
+    """Check if paper contains blacklisted domain terms"""
+    combined = f"{title} {summary}".lower()
+    return any(term in combined for term in BLACKLIST_TERMS)
 
-
-def fetch_recent_papers_by_topic():
-    """Fetch recent papers from arXiv by topic"""
-    all_papers = []
+def calculate_paper_score(paper: Dict) -> float:
+    """
+    Calculate quality and relevance score for weekly curation.
+    """
+    title = paper.get("title", "").strip()
+    summary = paper.get("summary", "").strip()
+    authors = paper.get("authors", [])
+    combined_text = f"{title} {summary}".lower()
+    days_old = paper.get("days_since_publication", 7)
+    version = paper.get("version", 1)
     
-    for topic in TOPICS:
-        print(f"Fetching papers for: {topic}")
-        
-        # Build query for this topic
+    if is_blacklisted(title, summary):
+        return 0.0
+
+    score = 0.0
+
+    # 1. Newsletter curation bonus (+3.0 if highlighted by Substack/newsletters)
+    if paper.get("curated_source") in ("lastweekinai", "substack"):
+        score += 3.0
+
+    # 2. High impact institution (+2.0)
+    if has_high_impact_authors(authors):
+        score += 2.0
+
+    # 3. Paper revisions / traction (+1.0 for version > 1)
+    if version > 1:
+        score += 1.0
+
+    # 4. Trending keywords (+2.0 for 2+ keywords, +1.0 for 1 keyword)
+    keyword_hits = sum(1 for kw in TRENDING_KEYWORDS if kw in combined_text)
+    if keyword_hits >= 2:
+        score += 2.0
+    elif keyword_hits == 1:
+        score += 1.0
+
+    # 5. Benchmark or open-source release (+1.0)
+    if "benchmark" in combined_text or "open source" in combined_text or "open-source" in combined_text:
+        score += 1.0
+
+    # 6. Core topic overlap bonus
+    core_topics = ["large language model", "multimodal", "reasoning", "retrieval augmented", "transformer", "agent"]
+    topic_hits = sum(1 for t in core_topics if t in combined_text)
+    if topic_hits >= 2:
+        score += 1.5
+    elif topic_hits == 1:
+        score += 0.5
+
+    # 7. Recency bonus
+    if days_old <= 3:
+        score += 1.0
+    elif days_old <= 7:
+        score += 0.5
+
+    # 8. Upvotes bonus (if from Hugging Face Daily Papers)
+    upvotes = paper.get("upvotes", 0)
+    if upvotes > 0:
+        score += min(upvotes * 0.2, 3.0)
+
+    # 9. Damp weak papers
+    if score < 2.5 and paper.get("curated_source") not in ("lastweekinai", "huggingface"):
+        score *= 0.75
+
+    return round(score, 2)
+
+def fetch_newsletter_curated_arxiv_ids() -> Set[str]:
+    """Scrape recent newsletter RSS feeds to find curated arXiv paper mentions"""
+    curated_ids = set()
+    
+    for feed_url in SUBSTACK_NEWSLETTER_FEEDS:
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:10]:
+                content = getattr(entry, "summary", "") + " " + getattr(entry, "content", [{}])[0].get("value", "")
+                # Find all arxiv IDs or links in the newsletter content
+                matches = re.findall(r'(?:arxiv\.org/(?:abs|pdf)/|arXiv:)(\d{4}\.\d{4,5})', content, re.IGNORECASE)
+                for aid in matches:
+                    curated_ids.add(aid)
+        except Exception as e:
+            print(f"[WARN] Failed parsing newsletter feed {feed_url}: {e}")
+
+    return curated_ids
+
+def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -> List[Dict]:
+    """Fetch papers from arXiv across specified AI topics within the weekly window"""
+    topics_to_search = topics or TOPICS
+    all_papers = []
+    newsletter_ids = fetch_newsletter_curated_arxiv_ids()
+
+    for topic in topics_to_search:
         query = f"all:{topic.replace(' ', '+')}"
-        url = f"{BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=10"
+        url = f"{ARXIV_BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=10"
         
         try:
             feed = feedparser.parse(url)
-            
             for entry in feed.entries:
-                arxiv_id = extract_arxiv_id(entry.id)
-                
-                # Check if paper is recent (last 14 days)
-                published_date = datetime.strptime(entry.published, "%Y-%m-%dT%H:%M:%SZ")
-                days_ago = (datetime.now() - published_date).days
-                
-                if days_ago > 14:  # Skip papers older than 2 weeks
+                arxiv_id, version = extract_arxiv_id_and_version(entry.id)
+                if not arxiv_id:
                     continue
-                
+
+                try:
+                    published_dt = datetime.strptime(entry.published, "%Y-%m-%dT%H:%M:%SZ")
+                    days_ago = (datetime.utcnow() - published_dt).days
+                except Exception:
+                    published_dt = datetime.utcnow()
+                    days_ago = 0
+
+                if days_ago > days_back:
+                    continue
+
+                pdf_link = next((l.href for l in getattr(entry, "links", []) if getattr(l, "type", "") == "application/pdf"), f"https://arxiv.org/pdf/{arxiv_id}.pdf")
+                clean_title = re.sub(r'\s+', ' ', entry.title).strip()
+                clean_summary = re.sub(r'\s+', ' ', entry.summary).strip()
+                author_names = [a.name for a in getattr(entry, "authors", []) if hasattr(a, "name")]
+
+                is_in_newsletter = arxiv_id in newsletter_ids
+
                 paper = {
-                    "title": entry.title,
-                    "summary": entry.summary,
-                    "link": entry.link,
-                    "pdf_url": next((l.href for l in entry.links if l.type == "application/pdf"), None),
-                    "published": entry.published,
-                    "authors": [author.name for author in entry.authors],
-                    "topic": topic,
                     "arxiv_id": arxiv_id,
-                    "days_since_publication": days_ago
+                    "version": version,
+                    "title": clean_title,
+                    "summary": clean_summary,
+                    "authors": author_names,
+                    "topic": topic,
+                    "published_at": published_dt.isoformat() + "Z",
+                    "days_since_publication": days_ago,
+                    "pdf_url": pdf_link,
+                    "hf_url": f"https://huggingface.co/papers/{arxiv_id}",
+                    "curated_source": "lastweekinai" if is_in_newsletter else "arxiv",
+                    "published_edition": get_current_edition_tag(),
+                    "upvotes": 0,
+                    "status": "draft"
                 }
-                
-                if is_relevant(paper):
-                    all_papers.append(paper)
-            
-            # Small delay between topics
-            time.sleep(1)
-            
+                all_papers.append(paper)
+
+            time.sleep(0.5)
         except Exception as e:
-            print(f"Error fetching {topic}: {e}")
+            print(f"[WARN] Error querying arXiv for topic '{topic}': {e}")
             continue
-    
+
     return all_papers
 
-def score_paper(paper):
-    """Calculate a comprehensive relevance score for a paper"""
-    score = 0.0
-    title = paper["title"].lower()
-    summary = paper.get("summary", "").lower()
-    combined_text = f"{title} {summary}"
-    
-    # Core topic relevance (0-3 points)
-    core_topics = {
-        'large language model': 3.0,
-        'llm': 3.0,
-        'foundation model': 2.5,
-        'transformer': 2.0,
-        'rlhf': 2.5,
-        'alignment': 2.0,
-        'constitutional ai': 2.5,
-        'reasoning': 2.0
-    }
-    core_score = sum(points for topic, points in core_topics.items() 
-                    if topic in combined_text)
-    score += min(core_score, 3.0)  # Cap at 3 points
-    
-    # Author impact (0-2 points)
-    if has_high_impact_authors(paper["authors"]):
-        score += 2.0
-    
-    # Title quality indicators (0-1 point)
-    quality_markers = [
-        'improving', 'enhanced', 'better', 'efficient',
-        'novel', 'new approach', 'framework', 'towards',
-        'understanding', 'learning to', 'beyond'
-    ]
-    if any(marker in title for marker in quality_markers):
-        score += 0.5
-    
-    # Version and maturity (0-1 point)
-    version_count = count_versions(paper.get("arxiv_id"))
-    if version_count > 1:
-        score += 0.5
-    
-    # Recent citation or reference bonuses
-    if any(ref in combined_text.lower() for ref in [
-        'gpt-4', 'claude', 'gemini', 'palm-2', 'llama'
-    ]):
-        score += 0.5
+def fetch_hf_daily_papers(limit: int = 15) -> List[Dict]:
+    """Fetch curated trending daily papers from Hugging Face API"""
+    papers = []
+    try:
+        response = requests.get(HF_DAILY_PAPERS_URL, timeout=10)
+        if response.status_code != 200:
+            return papers
+
+        data = response.json()
+        for item in data[:limit]:
+            paper_info = item.get("paper", {})
+            raw_id = paper_info.get("id", "")
+            arxiv_id, version = extract_arxiv_id_and_version(raw_id)
+            if not arxiv_id:
+                continue
+
+            published_str = paper_info.get("publishedAt", "")
+            try:
+                published_dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                days_ago = (datetime.utcnow().replace(tzinfo=published_dt.tzinfo) - published_dt).days
+            except Exception:
+                published_dt = datetime.utcnow()
+                days_ago = 0
+
+            authors = [a.get("name", "") for a in paper_info.get("authors", []) if isinstance(a, dict)]
+            clean_title = re.sub(r'\s+', ' ', paper_info.get("title", "")).strip()
+            clean_summary = re.sub(r'\s+', ' ', paper_info.get("summary", "")).strip()
+
+            if clean_title:
+                papers.append({
+                    "arxiv_id": arxiv_id,
+                    "version": version,
+                    "title": clean_title,
+                    "summary": clean_summary,
+                    "authors": authors,
+                    "topic": "Trending AI",
+                    "published_at": published_dt.isoformat(),
+                    "days_since_publication": days_ago,
+                    "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
+                    "hf_url": f"https://huggingface.co/papers/{arxiv_id}",
+                    "curated_source": "huggingface",
+                    "published_edition": get_current_edition_tag(),
+                    "upvotes": paper_info.get("upvotes", 0),
+                    "status": "draft"
+                })
+    except Exception as e:
+        print(f"[WARN] Error querying Hugging Face Daily Papers: {e}")
+
+    return papers
+
+def deduplicate_papers(papers: List[Dict]) -> List[Dict]:
+    """Deduplicate papers preferring higher-signal entries (newsletter / HF with upvotes)"""
+    seen_ids = set()
+    seen_titles = set()
+    unique = []
+
+    # Sort priority: newsletter mentions > upvotes > versions
+    def priority_key(x):
+        is_news = 100 if x.get("curated_source") == "lastweekinai" else 0
+        return (is_news + x.get("upvotes", 0), x.get("version", 1))
+
+    sorted_papers = sorted(papers, key=priority_key, reverse=True)
+
+    for p in sorted_papers:
+        aid = p.get("arxiv_id")
+        title_key = re.sub(r'[^a-zA-Z0-9]', '', p.get("title", "").lower())
         
-    return round(score, 2)
-
-def rank_papers(papers):
-    """
-    Rank recent arXiv papers based on relevance and quality heuristics.
-    Goal: fewer, better papers (high precision curation).
-    """
-    # Group papers by date
-    papers_by_date = {}
-    for paper in papers:
-        date = paper["published"][:10]  # YYYY-MM-DD
-        if date not in papers_by_date:
-            papers_by_date[date] = []
-        papers_by_date[date].append(paper)
-    
-    # Scoring weights for different paper attributes
-    weights = {
-        'versions': 1.0,          # Multiple versions indicate refinement/interest
-        'high_impact_authors': 2.0,  # Papers from top institutions/authors
-        'benchmark': 1.0,         # Papers introducing/using benchmarks
-        'open_source': 1.0,       # Open source implementations
-        'trending_keywords': 2.0,  # Match to hot LLM-related topics
-        'topic_overlap': 1.5,     # Papers covering multiple relevant topics
-        'recency': 1.0           # Boost for very recent papers
-    }
-    
-    ranked_papers = []
-    MAX_PAPERS_PER_DAY = 5
-    
-    # Process each day's papers
-    for date, day_papers in papers_by_date.items():
-        # Score all papers for this day
-        scored_papers = []
-        for paper in day_papers:
-            score = score_paper(paper)
-            paper['score'] = score
-            scored_papers.append(paper)
-            print(f"Score: {score:>4.1f} | {paper['title'][:60]}...")
-        
-        # Sort by score and take top N
-        scored_papers.sort(key=lambda x: x['score'], reverse=True)
-        ranked_papers.extend(scored_papers[:MAX_PAPERS_PER_DAY])
-
-    topics = [
-        "large language model", "multimodal", 
-        "reasoning", "retrieval augmented", "transformer"
-    ]
-    
-    blacklist_terms = [
-        "power transformer", "signal transformer", 
-        "circuit", "motor", "control system", "3d", "point cloud", "rgb-d", "reconstruction", "scene", "geometry"
-    ]
-
-    for paper in papers:
-        score = 0
-        title = paper.get('title', '').strip()
-        abstract = paper.get('summary', '').lower()
-        authors = paper.get('authors', [])
-        days_old = paper.get('days_since_publication', 14)
-        arxiv_id = paper.get('arxiv_id')
-
-        # === 1. Filter out irrelevant papers early ===
-        if any(b in abstract for b in blacklist_terms):
-            paper['score'] = 0
-            paper['reason'] = "blacklisted"
+        if aid and aid in seen_ids:
+            continue
+        if title_key in seen_titles:
             continue
 
-        # === 2. Versions (more = refinement or traction) ===
-        num_versions = count_versions(arxiv_id)
-        if num_versions > 1:
-            score += weights['versions']
-            print(f" +{weights['versions']} for versions: {title[:60]}... ({num_versions} versions)")
+        if aid:
+            seen_ids.add(aid)
+        seen_titles.add(title_key)
+        unique.append(p)
 
-        # === 3. High-impact authors or affiliations ===
-        if has_high_impact_authors(authors):
-            score += weights['high_impact_authors']
-            print(f" +{weights['high_impact_authors']} for high-impact authors: {title[:60]}...")
+    return unique
 
-        # === 4. Benchmark mentions ===
-        if 'benchmark' in abstract:
-            score += weights['benchmark']
-            print(f" +{weights['benchmark']} for benchmark: {title[:60]}...")
-
-        # === 5. Open-source mentions ===
-        if 'open-source' in abstract or 'open source' in abstract:
-            score += weights['open_source']
-            print(f" +{weights['open_source']} for open-source: {title[:60]}...")
-
-        # === 6. Trending LLM-related keywords ===
-        if has_trending_keywords(title, abstract):
-            score += weights['trending_keywords']
-            print(f" +{weights['trending_keywords']} for trending keywords: {title[:60]}...")
-
-        # === 7. Topic overlap bonus ===
-        topic_hits = sum(t in abstract for t in topics)
-        if topic_hits >= 2:
-            score += weights['topic_overlap']
-            print(f" +{weights['topic_overlap']} for multi-topic relevance: {title[:60]}...")
-
-        # === 8. Recency (mild freshness boost) ===
-        if days_old <= 3:
-            score += weights['recency']
-            print(f" +{weights['recency']} for very recent: {title[:60]}... ({days_old} days)")
-        elif days_old <= 7:
-            score += weights['recency'] * 0.5
-            print(f" +{weights['recency'] * 0.5} for recent: {title[:60]}... ({days_old} days)")
-
-        # === 9. Damp recency if overall weak ===
-        if score < 2:
-            score *= 0.8  # weak papers shouldn't ride recency bonus
-
-        paper['score'] = round(score, 2)
-        paper['reason'] = "ranked"
-        print(f"Total Score: {paper['score']} | {title[:60]}...")
-
-    # === 10. Final sort and selection ===
-    ranked = [p for p in papers if p.get('reason') == 'ranked']
-    ranked_sorted = sorted(ranked, key=lambda x: x.get('score', 0), reverse=True)
-    top_papers = ranked_sorted[:10]
-
-    print("\n=== Top Papers ===")
-    for p in top_papers:
-        print(f"{p['score']:>4}  |  {p['title'][:80]}")
-
-    return top_papers
-
-
-def remove_duplicates(papers):
-    """Remove duplicate papers based on title similarity"""
-    unique_papers = []
-    seen_titles = set()
-    
-    for paper in papers:
-        title_key = paper['title'].lower().strip()
-        if title_key not in seen_titles:
-            seen_titles.add(title_key)
-            unique_papers.append(paper)
-    
-    return unique_papers
-
-def fetch_daily_papers():
-    """Main function to fetch and rank papers"""
-    print("Fetching trending papers...")
-    
+def fetch_weekly_candidate_papers(limit: int = 10, days_back: int = 7) -> List[Dict]:
+    """
+    Main curation fetcher: Ingests from newsletters, Hugging Face, and arXiv for the weekly edition.
+    """
     all_papers = []
-    
-    # Fetch recent papers by topic (our primary method)
-    topic_papers = fetch_recent_papers_by_topic()
-    if topic_papers:
-        print(f"Found {len(topic_papers)} papers from topic search")
-        all_papers.extend(topic_papers)
-    
-    # Remove duplicates
-    all_papers = remove_duplicates(all_papers)
-    print(f"After deduplication: {len(all_papers)} papers")
-    
-    # Rank papers
-    print("\\nRanking papers...")
-    ranked_papers = rank_papers(all_papers)
-    
-    # Only return papers above minimum score threshold
-    MIN_SCORE = 2.0  # Minimum score to be considered
-    filtered_papers = [p for p in ranked_papers if p['score'] >= MIN_SCORE]
-    
-    # Cap total papers at 15, but usually will be less due to daily limits
-    top_papers = filtered_papers[:15]
-    
-    print("\n=== Final Paper Selection ===")
-    print(f"Total papers selected: {len(top_papers)}")
-    for p in top_papers:
-        print(f"{p['score']:>4.1f} | {p['title'][:80]}")
-    
-    return top_papers
 
-# For backwards compatibility
-def _fetch_daily_papers():
-    """Legacy function - use fetch_daily_papers() instead"""
-    return fetch_daily_papers()
+    # 1. HF Daily Papers
+    hf_papers = fetch_hf_daily_papers()
+    all_papers.extend(hf_papers)
+
+    # 2. arXiv Papers (with newsletter cross-checking)
+    arxiv_papers = fetch_arxiv_papers(days_back=days_back)
+    all_papers.extend(arxiv_papers)
+
+    # 3. Deduplicate
+    unique_papers = deduplicate_papers(all_papers)
+
+    # 4. Score and filter
+    scored_papers = []
+    for paper in unique_papers:
+        score = calculate_paper_score(paper)
+        paper["score"] = score
+        scored_papers.append(paper)
+
+    scored_papers.sort(key=lambda x: x["score"], reverse=True)
+    return scored_papers[:limit]
+
+# Backwards compatible alias
+def fetch_and_rank_papers(include_arxiv: bool = True, include_hf: bool = True, min_score: Optional[float] = None, limit: Optional[int] = None) -> List[Dict]:
+    return fetch_weekly_candidate_papers(limit=limit or 10)
 
 if __name__ == "__main__":
-    papers = fetch_daily_papers()
-    
-    print("\\n" + "="*80)
-    print("TOP RANKED PAPERS")
-    print("="*80)
-    
-    for i, paper in enumerate(papers, 1):
-        print(f"\\n{i}. {paper['title']}")
-        print(f"   Score: {paper.get('score', 0)}")
-        print(f"   Topic: {paper.get('topic', 'N/A')}")
-        print(f"   Authors: {', '.join(paper.get('authors', [])[:3])}{'...' if len(paper.get('authors', [])) > 3 else ''}")
-        print(f"   Published: {paper.get('published', 'N/A')}")
-        print(f"   Link: {paper.get('link', 'N/A')}")
-        print(f"   Abstract: {paper.get('summary', '')[:200]}...")
+    print("[*] Fetching weekly candidate papers...")
+    top_candidates = fetch_weekly_candidate_papers(limit=5)
+    print(f"\n[+] Selected {len(top_candidates)} top candidate papers:")
+    for idx, p in enumerate(top_candidates, 1):
+        print(f"\n{idx}. [{p['score']:>4.1f}] {p['title']}")
+        print(f"   arXiv: {p['arxiv_id']} | Source: {p['curated_source']} | Edition: {p['published_edition']}")
+        print(f"   Abstract: {p['summary'][:160]}...")

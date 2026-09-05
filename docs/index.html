@@ -3,130 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dr. Paper</title>
-    <meta name="description" content="A curated collection of research papers with AI-generated summaries">
+    <title>Dr. Paper — Weekly AI Research Dispatch</title>
+    <meta name="description" content="A curated weekly research dispatch exploring high-signal breakthroughs in artificial intelligence, systems, and deep learning.">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts: Newsreader (Editorial Serif) + Inter (Clean Sans) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script data-goatcounter="https://drpaper.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
-    <header class="header">
+    <header class="masthead">
         <div class="container">
-            <div class="header-content">
-                <h1 class="site-title">
-                    <img src="images/dr-paper.png" alt="Dr. Paper Logo" class="site-logo">
-                    Dr. Paper
-                </h1>
-                <p class="site-description">AI-curated collection of research papers with intelligent summaries</p>
+            <div class="masthead-top">
+                <div class="masthead-branding">
+                    <img src="https://raw.githubusercontent.com/pugmarx/dr_paper/main/docs/images/dr-paper.png" alt="Dr. Paper" class="masthead-logo" onerror="this.style.display='none'">
+                    <div>
+                        <h1 class="journal-title">Dr. Paper</h1>
+                        <p class="journal-subtitle">Weekly AI Research Dispatch</p>
+                    </div>
+                </div>
                 
-                <div class="header-controls">
-                    <div class="search-container">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="searchInput" placeholder="Search papers..." class="search-input">
-                    </div>
-                    
-                    <div class="filter-container">
-                        <select id="topicFilter" class="topic-filter">
-                            <option value="all">All Topics</option>
-                        </select>
-                    </div>
-                    
+                <div class="masthead-actions">
                     <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
                         <i class="fas fa-moon"></i>
                     </button>
                 </div>
             </div>
+
+            <div class="editorial-bar">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search essays, concepts, authors, topics..." class="search-input">
+                </div>
+                
+                <div class="filter-box">
+                    <select id="topicFilter" class="topic-select">
+                        <option value="all">All Disciplines</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </header>
 
-    <main class="main">
+    <main class="main-content">
         <div class="container">
-            <div class="stats-bar">
-                <div class="stat">
-                    <span class="stat-number" id="totalPapers">0</span>
-                    <span class="stat-label">Papers</span>
+            <div class="curation-banner">
+                <div class="banner-stat">
+                    <span class="stat-val" id="totalPapers">0</span>
+                    <span class="stat-lbl">Curated Dispatches</span>
                 </div>
-                <div class="stat">
-                    <span class="stat-number" id="totalTopics">0</span>
-                    <span class="stat-label">Topics</span>
+                <div class="banner-divider"></div>
+                <div class="banner-stat">
+                    <span class="stat-val" id="totalTopics">0</span>
+                    <span class="stat-lbl">Research Fields</span>
                 </div>
-                <div class="stat">
-                    <span class="stat-number" id="lastUpdated">Loading...</span>
-                    <span class="stat-label">Last Updated</span>
+                <div class="banner-divider"></div>
+                <div class="banner-stat">
+                    <span class="stat-val" id="lastUpdated">Recent</span>
+                    <span class="stat-lbl">Latest Edition</span>
                 </div>
             </div>
 
-            <div id="loadingSpinner" class="loading">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading papers...</p>
+            <div id="loadingSpinner" class="editorial-loading">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <p>Loading dispatches from Supabase...</p>
             </div>
 
-            <div id="errorMessage" class="error-message" style="display: none;">
-                <i class="fas fa-exclamation-triangle"></i>
-                <p>Error loading papers. Please try again later.</p>
+            <div id="errorMessage" class="editorial-error" style="display: none;">
+                <i class="fas fa-exclamation-circle"></i>
+                <p id="errorText">Unable to reach research repository. Please check connection.</p>
             </div>
 
-            <div id="papersGrid" class="papers-grid">
-                <!-- Papers will be dynamically inserted here -->
+            <div id="papersGrid" class="dispatches-flow">
+                <!-- Dynamic Article Dispatches will be injected here -->
             </div>
 
-            <div id="noResults" class="no-results" style="display: none;">
-                <i class="fas fa-search"></i>
-                <h3>No papers found</h3>
-                <p>Try adjusting your search terms or filters</p>
+            <div id="noResults" class="no-dispatches" style="display: none;">
+                <i class="fas fa-newspaper"></i>
+                <h3>No Matching Dispatches</h3>
+                <p>Try clearing filters or searching for different keywords.</p>
             </div>
         </div>
     </main>
 
-    <footer class="footer">
+    <footer class="journal-footer">
         <div class="container">
-            <p>&copy; 2025 Dr. Paper. Generated from Notion database.</p>
-            <div class="footer-links">
-                <a href="https://github.com/pugmarx/dr_paper" target="_blank">
-                    <i class="fab fa-github"></i> View Source
-                </a>
-            </div>
+            <div class="footer-rule"></div>
+            <p class="footer-tagline">Dr. Paper, 2026. Created by <a href="https://github.com/pugmarx/dr_paper" target="_blank">pugmarx</a>. Powered by ☕.</p>
         </div>
     </footer>
 
-    <!-- Paper Card Template -->
+    <!-- Article Template -->
     <template id="paperCardTemplate">
-        <article class="paper-card">
-            <div class="paper-header">
-                <h2 class="paper-title"></h2>
-                <div class="paper-meta">
-                    <span class="paper-date"></span>
-                    <span class="paper-topic"></span>
-                    <span class="paper-status"></span>
+        <article class="dispatch-article">
+            <header class="article-header">
+                <div class="article-meta-top">
+                    <span class="article-edition"></span>
+                    <span class="meta-separator">•</span>
+                    <span class="article-date"></span>
+                    <span class="meta-separator">•</span>
+                    <span class="article-topic"></span>
+                    <span class="featured-tag" style="display: none;"><i class="fas fa-star"></i> Featured Pick</span>
                 </div>
+                
+                <h2 class="article-headline"></h2>
+                
+                <div class="article-authors"></div>
+            </header>
+
+            <!-- Curator's Note (Human Editorial Lead) -->
+            <div class="curator-take" style="display: none;">
+                <div class="curator-badge"><i class="fas fa-pen-nib"></i> Curator's Take</div>
+                <div class="curator-text"></div>
             </div>
-            
-            <div class="paper-authors"></div>
-            
-            <div class="paper-summary">
-                <div class="summary-preview"></div>
-                <div class="summary-full" style="display: none;"></div>
-                <button class="read-more-btn" type="button">
-                    <span class="read-more-text">Read more</span>
+
+            <!-- Lead Thesis Hook -->
+            <div class="thesis-hook"></div>
+
+            <!-- Deep Dive Essay Sections -->
+            <div class="essay-body">
+                <section class="essay-section context-section">
+                    <h3 class="section-heading">Context & Motivation</h3>
+                    <div class="section-prose context-prose"></div>
+                </section>
+
+                <section class="essay-section mechanism-section">
+                    <h3 class="section-heading">The Core Mechanism</h3>
+                    <div class="section-prose mechanism-prose"></div>
+                </section>
+
+                <section class="essay-section results-section">
+                    <h3 class="section-heading">Empirical Reality Check</h3>
+                    <div class="section-prose results-prose"></div>
+                </section>
+
+                <section class="essay-section critique-section">
+                    <h3 class="section-heading">Critique & Trade-offs</h3>
+                    <div class="section-prose critique-prose"></div>
+                </section>
+
+                <section class="essay-section takeaways-section" style="display: none;">
+                    <h3 class="section-heading">Key Takeaways</h3>
+                    <ul class="takeaways-pills"></ul>
+                </section>
+            </div>
+
+            <!-- Original Abstract Drawer -->
+            <div class="abstract-drawer">
+                <button class="toggle-abstract-btn" type="button">
+                    <span>Original arXiv Abstract</span>
                     <i class="fas fa-chevron-down"></i>
                 </button>
+                <div class="abstract-content" style="display: none;"></div>
             </div>
-            
-            <div class="paper-actions">
-                <a href="#" class="action-btn arxiv-btn" target="_blank">
-                    <i class="fas fa-external-link-alt"></i>
-                    ArXiv
-                </a>
-                <a href="#" class="action-btn pdf-btn" target="_blank">
-                    <i class="fas fa-file-pdf"></i>
-                    PDF
-                </a>
-                <button class="action-btn share-btn" type="button">
-                    <i class="fas fa-share"></i>
-                    Share
+
+            <!-- Article Footer Links -->
+            <footer class="article-footer">
+                <div class="article-links">
+                    <a href="#" class="btn-link arxiv-link" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> arXiv
+                    </a>
+                    <a href="#" class="btn-link pdf-link" target="_blank">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
+                    <a href="#" class="btn-link hf-link" target="_blank" style="display: none;">
+                        <i class="fas fa-comments"></i> HF Discussion
+                    </a>
+                </div>
+                <button class="share-icon-btn" type="button" title="Share Dispatch">
+                    <i class="fas fa-share-alt"></i>
                 </button>
-            </div>
+            </footer>
         </article>
     </template>
 

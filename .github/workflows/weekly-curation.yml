@@ -16,6 +16,16 @@ on:
         required: false
         default: false
         type: boolean
+      test_telegram:
+        description: 'Send a test card to Telegram to verify bot connection'
+        required: false
+        default: false
+        type: boolean
+      notify_staged_drafts:
+        description: 'Send Telegram cards for all existing drafts in Supabase'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -61,6 +71,18 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PYTHONUNBUFFERED: "1"
         run: |
+          if [ "${{ inputs.test_telegram }}" = "true" ]; then
+            echo "[*] Sending test card to Telegram..."
+            python src/pipeline.py --test-telegram
+            exit 0
+          fi
+
+          if [ "${{ inputs.notify_staged_drafts }}" = "true" ]; then
+            echo "[*] Sending Telegram cards for staged drafts..."
+            python src/pipeline.py --notify-drafts
+            exit 0
+          fi
+
           LIMIT="${{ inputs.limit }}"
           if [ -z "$LIMIT" ]; then
             LIMIT="10"

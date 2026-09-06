@@ -284,6 +284,8 @@ def main():
     parser.add_argument("--publish", type=str, metavar="ARXIV_ID", help="Publish a specific paper by arXiv ID")
     parser.add_argument("--export-published", action="store_true", help="Export published papers to docs/papers.json")
     parser.add_argument("--test-db", action="store_true", help="Test connection to Supabase dr_paper schema")
+    parser.add_argument("--test-telegram", action="store_true", help="Send a test review card to Telegram")
+    parser.add_argument("--notify-drafts", action="store_true", help="Send review cards for all staged drafts to Telegram")
     parser.add_argument("--limit", type=int, default=10, help="Candidate paper limit (default: 10)")
 
     args = parser.parse_args()
@@ -292,6 +294,16 @@ def main():
         success, msg = db.test_connection()
         print(f"[{'SUCCESS' if success else 'ERROR'}] {msg}")
         sys.exit(0 if success else 1)
+
+    if args.test_telegram:
+        from telegram_bot import send_test_card
+        send_test_card()
+        return
+
+    if args.notify_drafts:
+        from telegram_bot import notify_all_staged_drafts
+        notify_all_staged_drafts()
+        return
 
     if args.dry_run:
         run_dry_run(limit=args.limit)

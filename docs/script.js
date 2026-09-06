@@ -454,14 +454,14 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         }
         
         if (shareBtn) {
-            shareBtn.addEventListener('click', () => this.shareDispatch(paper));
+            shareBtn.addEventListener('click', () => this.sharePaper(paper));
         }
         
         return article;
     }
     
-    shareDispatch(paper) {
-        const title = paper.title || 'Research Dispatch';
+    sharePaper(paper) {
+        const title = paper.title || 'Research Paper';
         const url = paper.arxiv_id ? `https://arxiv.org/abs/${paper.arxiv_id}` : window.location.href;
         const text = `Read "${title}" on Dr. Paper:`;
         
@@ -469,7 +469,7 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             navigator.share({ title, text, url }).catch(() => {});
         } else {
             navigator.clipboard.writeText(`${text} ${url}`).then(() => {
-                this.showToast('Dispatch link copied to clipboard.');
+                this.showToast('Paper link copied to clipboard.');
             });
         }
     }
@@ -492,7 +492,7 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         const err = document.getElementById('errorMessage');
         const errText = document.getElementById('errorText');
         if (err) err.style.display = 'block';
-        if (errText && msg) errText.textContent = `Error loading dispatches: ${msg}`;
+        if (errText && msg) errText.textContent = `Error loading papers: ${msg}`;
     }
 }
 

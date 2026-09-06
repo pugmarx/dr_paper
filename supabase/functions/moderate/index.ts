@@ -10,13 +10,13 @@ Deno.serve(async (req) => {
   const action = url.searchParams.get('action')
   const token = url.searchParams.get('token')
 
-  // Basic security token check (if configured)
+  // Security token check (if configured)
   if (MODERATION_TOKEN && token !== MODERATION_TOKEN) {
-    return new Response('Unauthorized moderation request', { status: 401 })
+    return new Response('Unauthorized request', { status: 401 })
   }
 
   if (!arxivId || !action) {
-    return new Response('Missing required id or action parameter', { status: 400 })
+    return new Response('Missing id or action parameter', { status: 400 })
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     actionTitle = 'Rejected'
     statusColor = '#b91c1c'
   } else {
-    return new Response('Invalid action parameter', { status: 400 })
+    return new Response('Invalid action', { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
 
   const paperTitle = data && data.length > 0 ? data[0].title : arxivId
 
+  // Clean confirmation HTML with explicit UTF-8 Content-Type headers
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,7 +132,13 @@ Deno.serve(async (req) => {
 </body>
 </html>`
 
+  const headers = new Headers({
+    'Content-Type': 'text/html; charset=utf-8',
+    'Access-Control-Allow-Origin': '*'
+  })
+
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    status: 200,
+    headers: headers
   })
 })

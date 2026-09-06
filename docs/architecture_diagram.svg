@@ -21,16 +21,16 @@
   <!-- 1. INGESTION -->
   <rect x="40" y="90" width="245" height="460" class="box" />
   <text x="60" y="120" class="header">1. INGESTION</text>
-  <text x="60" y="138" class="subtext">Weekly automated fetch</text>
+  <text x="60" y="138" class="subtext">Daily rolling window fetch</text>
 
   <!-- Trigger -->
   <rect x="60" y="155" width="205" height="50" class="box-sub" />
   <text x="72" y="176" class="label">Scheduled Trigger</text>
-  <text x="72" y="193" class="code">GitHub Actions (Weekly cron)</text>
+  <text x="72" y="193" class="code">GitHub Actions (Daily: 0 8 * * *)</text>
 
   <!-- Sources -->
   <rect x="60" y="218" width="205" height="120" class="box-sub" />
-  <text x="72" y="239" class="label">Candidate Sources</text>
+  <text x="72" y="239" class="label">Candidate Sources (7-Day Pool)</text>
   <text x="72" y="260" class="code">• arXiv (cs.CL, cs.AI, cs.LG)</text>
   <text x="72" y="280" class="code">• Hugging Face Daily Papers</text>
   <text x="72" y="300" class="code">• AI Newsletters (RSS)</text>
@@ -39,11 +39,11 @@
   <!-- Filter & Rank -->
   <rect x="60" y="351" width="205" height="175" class="box-sub" />
   <text x="72" y="372" class="label">Filtering &amp; Ranking</text>
-  <text x="72" y="394" class="code">• Deduplicate cross-posts</text>
-  <text x="72" y="414" class="code">• Score by community upvotes</text>
+  <text x="72" y="394" class="code">• Deduplicate against DB</text>
+  <text x="72" y="414" class="code">• Score mature upvotes/mentions</text>
   <text x="72" y="434" class="code">• Filter non-CS domains</text>
   <text x="72" y="460" class="label">Output:</text>
-  <text x="72" y="480" class="code">Top 5-10 candidate papers</text>
+  <text x="72" y="480" class="code">Top 1-2 breakout papers</text>
   <text x="72" y="498" class="code">(Title, Abstract, PDF URL)</text>
 
   <!-- Arrow 1 -> 2 -->

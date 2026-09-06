@@ -1,6 +1,7 @@
 // ==============================================================================
 // Dr. Paper: Frontend Web Client (The Morning Paper Research Journal)
 // Live PostgREST integration with Supabase (status='published')
+// Cross-Device Reading State (Unread Queue, Saved, Starred, Touch Gestures)
 // ==============================================================================
 
 const SUPABASE_CONFIG = {
@@ -34,13 +35,41 @@ class PapersJournal {
         this.papers = [];
         this.filteredPapers = [];
         this.currentTheme = localStorage.getItem('theme') || 'light';
+        
+        // Reading State Engine
+        this.userId = localStorage.getItem('dr_paper_user_id') || 'default';
+        this.activeTab = localStorage.getItem('dr_paper_active_tab') || 'unread';
+        this.interactions = this.loadLocalInteractions();
+        this.lastAction = null;
+        this.toastTimer = null;
+        
+        this.searchTerm = '';
+        this.selectedTopic = 'all';
+
         this.init();
     }
     
     init() {
         this.setupTheme();
         this.setupEventListeners();
+        this.setupQueueTabs();
         this.loadDispatches();
+        this.syncRemoteInteractions();
+    }
+    
+    loadLocalInteractions() {
+        try {
+            const raw = localStorage.getItem('dr_paper_interactions');
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+    
+    saveLocalInteractions() {
+        try {
+            localStorage.setItem('dr_paper_interactions', JSON.stringify(this.interactions));
+        } catch (e) {}
     }
     
     setupTheme() {
@@ -48,7 +77,7 @@ class PapersJournal {
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             const icon = themeToggle.querySelector('i');
-            icon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            if (icon) icon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
     }
     
@@ -61,18 +90,83 @@ class PapersJournal {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
-                const topicFilter = document.getElementById('topicFilter');
-                this.filterDispatches(e.target.value, topicFilter ? topicFilter.value : 'all');
+                this.searchTerm = e.target.value;
+                this.filterDispatches();
             });
         }
         
         const topicFilter = document.getElementById('topicFilter');
         if (topicFilter) {
             topicFilter.addEventListener('change', (e) => {
-                const searchInput = document.getElementById('searchInput');
-                this.filterDispatches(searchInput ? searchInput.value : '', e.target.value);
+                this.selectedTopic = e.target.value;
+                this.filterDispatches();
             });
         }
+
+        // Empty state buttons
+        const viewArchiveBtn = document.getElementById('viewArchiveBtn');
+        if (viewArchiveBtn) {
+            viewArchiveBtn.addEventListener('click', () => this.switchTab('all'));
+        }
+
+        const viewSavedBtn = document.getElementById('viewSavedBtn');
+        if (viewSavedBtn) {
+            viewSavedBtn.addEventListener('click', () => this.switchTab('saved'));
+        }
+
+        // Handle URL hash changes (#arxiv_id)
+        window.addEventListener('hashchange', () => this.handleDeepLink());
+    }
+
+    setupQueueTabs() {
+        const tabs = document.querySelectorAll('.feed-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.getAttribute('data-tab');
+                this.switchTab(targetTab);
+            });
+        });
+        this.updateTabUI();
+    }
+
+    switchTab(tabName) {
+        if (!['unread', 'saved', 'all'].includes(tabName)) return;
+        this.activeTab = tabName;
+        localStorage.setItem('dr_paper_active_tab', tabName);
+        this.updateTabUI();
+        this.filterDispatches();
+    }
+
+    updateTabUI() {
+        const tabs = document.querySelectorAll('.feed-tab');
+        tabs.forEach(tab => {
+            const isTarget = tab.getAttribute('data-tab') === this.activeTab;
+            tab.classList.toggle('active', isTarget);
+            tab.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+        });
+    }
+
+    updateTabCounts() {
+        let unreadCount = 0;
+        let savedCount = 0;
+        const allCount = this.papers.length;
+
+        this.papers.forEach(p => {
+            const aid = p.arxiv_id;
+            const inter = this.interactions[aid] || {};
+            if (!inter.is_read) unreadCount++;
+            if (inter.is_bookmarked) savedCount++;
+        });
+
+        const unreadElem = document.getElementById('countUnread');
+        const savedElem = document.getElementById('countSaved');
+        const allElem = document.getElementById('countAll');
+        const emptySavedElem = document.getElementById('savedEmptyCount');
+
+        if (unreadElem) unreadElem.textContent = unreadCount;
+        if (savedElem) savedElem.textContent = savedCount;
+        if (allElem) allElem.textContent = allCount;
+        if (emptySavedElem) emptySavedElem.textContent = savedCount;
     }
     
     toggleTheme() {
@@ -83,7 +177,7 @@ class PapersJournal {
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             const icon = themeToggle.querySelector('i');
-            icon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            if (icon) icon.className = this.currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
     }
     
@@ -91,28 +185,93 @@ class PapersJournal {
         try {
             this.papers = await this.fetchDispatches();
             
-            // Prioritize featured papers first, then sort by published date descending
+            // Prioritize featured papers first, then sort by date descending
             this.papers.sort((a, b) => {
                 if (a.is_featured && !b.is_featured) return -1;
                 if (!a.is_featured && b.is_featured) return 1;
                 return new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at);
             });
             
-            this.filteredPapers = [...this.papers];
-            
             this.updateStats();
+            this.updateTabCounts();
             this.populateTopicFilter();
-            this.renderDispatches();
+            this.filterDispatches();
             this.hideLoading();
+            this.handleDeepLink();
             
         } catch (error) {
-            console.error('Error loading dispatches:', error);
+            console.error('Error loading papers:', error);
             this.showError(error.message);
+        }
+    }
+
+    async syncRemoteInteractions() {
+        if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) return;
+        try {
+            const endpoint = `${SUPABASE_CONFIG.url.replace(/\/$/, '')}/rest/v1/user_interactions?user_id=eq.${encodeURIComponent(this.userId)}&select=*`;
+            const response = await fetch(endpoint, {
+                headers: {
+                    'apikey': SUPABASE_CONFIG.anonKey,
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+                    'Accept-Profile': SUPABASE_CONFIG.schema
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    data.forEach(row => {
+                        this.interactions[row.arxiv_id] = {
+                            is_read: Boolean(row.is_read),
+                            is_bookmarked: Boolean(row.is_bookmarked),
+                            is_starred: Boolean(row.is_starred),
+                            read_at: row.read_at
+                        };
+                    });
+                    this.saveLocalInteractions();
+                    this.updateTabCounts();
+                    this.filterDispatches();
+                }
+            }
+        } catch (err) {
+            console.warn('[Dr. Paper] Cross-device sync notice:', err);
+        }
+    }
+
+    async persistInteraction(arxivId) {
+        this.saveLocalInteractions();
+        this.updateTabCounts();
+        
+        if (!SUPABASE_CONFIG.url || !SUPABASE_CONFIG.anonKey) return;
+        try {
+            const data = this.interactions[arxivId] || {};
+            const endpoint = `${SUPABASE_CONFIG.url.replace(/\/$/, '')}/rest/v1/user_interactions`;
+            await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_CONFIG.anonKey,
+                    'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+                    'Content-Type': 'application/json',
+                    'Content-Profile': SUPABASE_CONFIG.schema,
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                    user_id: this.userId,
+                    arxiv_id: arxivId,
+                    is_read: Boolean(data.is_read),
+                    is_bookmarked: Boolean(data.is_bookmarked),
+                    is_starred: Boolean(data.is_starred),
+                    read_at: data.read_at || (data.is_read ? new Date().toISOString() : null),
+                    updated_at: new Date().toISOString()
+                })
+            });
+        } catch (err) {
+            console.warn('[Dr. Paper] PostgREST interaction write error:', err);
         }
     }
     
     async fetchDispatches() {
-        // 1. Query Supabase PostgREST for published dispatches
+        // 1. Query Supabase PostgREST for published papers
         if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
             try {
                 const endpoint = `${SUPABASE_CONFIG.url.replace(/\/$/, '')}/rest/v1/papers?status=eq.published&select=*&order=published_at.desc&limit=50`;
@@ -127,100 +286,49 @@ class PapersJournal {
                 if (response.ok) {
                     const data = await response.json();
                     if (Array.isArray(data) && data.length > 0) {
-                        console.log(`[Dr. Paper] Loaded ${data.length} published dispatches from Supabase (${SUPABASE_CONFIG.schema})`);
                         return data;
                     }
                 }
             } catch (err) {
-                console.warn('[Dr. Paper] Supabase query failed, falling back to local snapshot:', err);
+                console.warn('[Dr. Paper] Supabase query failed, falling back:', err);
             }
         }
         
-        // 2. Fallback to static papers.json
-        try {
-            const response = await fetch('papers.json');
-            if (response.ok) {
-                const data = await response.json();
-                const publishedList = (data.papers || []).filter(p => !p.status || p.status === 'published');
-                return publishedList.length > 0 ? publishedList : data.papers;
-            }
-        } catch (err) {
-            console.warn('[Dr. Paper] Local fallback load failed:', err);
-        }
-        
-        // 3. Demo dataset
+        // 2. Demo dataset fallback
         return this.getDemoDispatches();
     }
     
     getDemoDispatches() {
         return [
             {
-                arxiv_id: '2407.08608',
-                title: 'FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-Precision',
-                authors: ['Tri Dao', 'Jay Shah'],
-                topic: 'Systems & Efficiency',
-                score: 9.8,
+                arxiv_id: '2609.03153',
+                title: 'VeriPhy: Agentic Physical Reasoning for World Model Evaluation and Refinement',
+                authors: ['World Model Lab'],
+                topic: 'Robotics & Physical AI',
+                score: 14.5,
                 is_featured: true,
-                curated_source: 'huggingface',
+                curated_source: 'Hugging Face Daily',
                 published_edition: '2026-W36',
-                editorial_notes: 'Tri Dao does it again. Overlapping TMA transfers with WGMMA compute is a masterclass in GPU hardware exploitation.',
-                published_at: '2026-09-05T00:00:00Z',
-                pdf_url: 'https://arxiv.org/pdf/2407.08608.pdf',
-                hf_url: 'https://huggingface.co/papers/2407.08608',
-                summary: 'Attention is the core computational bottleneck in scaling Transformers. FlashAttention-3 introduces warp-specialization, hardware asynchrony on NVIDIA Hopper H100 GPUs, and block-quantized FP8 execution.',
+                editorial_notes: 'Physical reasoning has always been a major blind spot for generative world models. VeriPhy introduces deterministic verification steps.',
+                published_at: '2026-09-06T00:00:00Z',
+                pdf_url: 'https://arxiv.org/pdf/2609.03153.pdf',
+                hf_url: 'https://huggingface.co/papers/2609.03153',
+                summary: 'Evaluating world models requires validating physical consistency. VeriPhy provides an agentic evaluation framework with deterministic verification.',
                 structured_analysis: {
-                    one_line_hook: 'FlashAttention-3 overlaps TMA memory transfers with WGMMA tensor compute, extracting ~75% of theoretical H100 peak throughput without sacrificing FP8 accuracy.',
-                    essay_markdown: `### The Tension in Existing Systems
-Attention still dominates the FLOP budget and execution latency of large Transformers. While FlashAttention-2 made massive strides by optimizing IO access patterns on Ampere GPUs, it left a substantial fraction of NVIDIA's Hopper architecture idle. Specifically, Hopper introduced dedicated hardware units—the Tensor Memory Accelerator (TMA) and Warp-Group Matrix Multiply-Accumulate (WGMMA)—that standard kernels leave underutilized due to sequential dependencies between DRAM loads, matrix multiplications, and softmax reductions.
+                    one_line_hook: 'VeriPhy introduces deterministic verification steps to eliminate physics hallucinations in multimodal world models.',
+                    plain_english_gist: 'VeriPhy provides an automated verification tool that checks if video and multimodal AI models obey fundamental physical laws (gravity, collision, momentum) instead of hallucinating impossible physics.',
+                    essay_markdown: `### The Motivation
+Generative world models frequently generate plausible-looking videos that violate basic Newtonian physics. VeriPhy formalizes physical verification by decomposing actions into verifiable state transitions.
 
-### The Architectural Trick: Warp-Specialization & Asynchrony
-The core insight of FlashAttention-3 is to decouple data movement from compute using hardware-level warp-specialization. Rather than having all threads simultaneously fetch and compute, the kernel partitions warps into dedicated *producers* (which issue asynchronous TMA transfers into a shared circular buffer) and *consumers* (which feed WGMMA tensor instructions in parallel). A single warp-level barrier per tile coordinates the pipeline without global synchronization.
+### How it Works
+The system uses automated agentic inspectors that test collision boundaries, momentum conservation, and object permanency in synthetic trajectories.
 
-To push throughput further without numeric instability, the authors implement dynamic per-tile FP8 quantization. Each 64-element block of Q and K is scaled dynamically during the online softmax pass, keeping intermediate accumulations in FP16 before final downcasting.
-
-### The Empirical Reality Check
-Benchmarked on NVIDIA H100 SXM GPUs, FlashAttention-3 reaches 740 TFLOPs/s in FP16—representing ~75% of theoretical hardware capacity. In FP8, throughput exceeds 1.2 PFLOPs/s. Across end-to-end language modeling workloads, this translates to a 1.5x speedup on 70B decoders (12.4ms vs 18.6ms per token) and a 2.0x speedup on 13B encoders, with zero measurable perplexity degradation on WikiText-103 and GSM8K.
-
-### Where the Catch Lies
-The primary limitation is portability: these optimizations depend strictly on Hopper-specific SM90a instructions. On older Ampere or Volta GPUs, or non-NVIDIA accelerators like AMD's MI300, the kernel falls back to standard FlashAttention-2 speeds. Additionally, the producer-consumer circular buffer assumes sequence lengths can fill the pipeline without memory stalls; workloads with heavy KV-cache fragmentation may see lower utilization.`,
+### Results & Tradeoffs
+Eliminates physical hallucination by 64% in simulated robot benchmarks with minimal inference overhead.`,
                     key_takeaways: [
-                        'Lifts H100 FP16 attention utilization to 75% of theoretical peak (740 TFLOPs/s).',
-                        'Eliminates memory stalls via asynchronous producer-consumer warp specialization.',
-                        'Preserves baseline perplexity using per-tile FP8 block quantization.'
-                    ]
-                }
-            },
-            {
-                arxiv_id: '1706.03762',
-                title: 'Attention Is All You Need',
-                authors: ['Ashish Vaswani', 'Noam Shazeer', 'Niki Parmar', 'Jakob Uszkoreit'],
-                topic: 'Foundation Models',
-                score: 9.9,
-                is_featured: false,
-                curated_source: 'arxiv',
-                published_edition: '2026-W36',
-                editorial_notes: 'The seminal paper that introduced multi-head self-attention and launched the modern transformer era.',
-                published_at: '2026-09-01T00:00:00Z',
-                pdf_url: 'https://arxiv.org/pdf/1706.03762.pdf',
-                hf_url: 'https://huggingface.co/papers/1706.03762',
-                summary: 'The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms.',
-                structured_analysis: {
-                    one_line_hook: 'Replacing recurrence entirely with multi-head self-attention reduces path length to O(1) and unlocks massive training parallelism.',
-                    essay_markdown: `### The Bottleneck of Sequential Recurrence
-Prior to this work, state-of-the-art sequence transduction relied almost exclusively on recurrent neural networks (RNNs, LSTMs, and GRUs). While conceptually elegant, sequential recurrence imposes a fundamental computational barrier: because hidden state $h_t$ strictly depends on $h_{t-1}$, training cannot be parallelized across the time dimension. On long sequence lengths, this constraint severely bottlenecks GPU utilization.
-
-### Multi-Head Attention as a Drop-in Architecture
-The Transformer replaces recurrence entirely with Multi-Head Self-Attention (MHA) and sinusoidal positional encodings. Rather than compressing context into a single recurrent vector, every token computes attention weights across all other positions simultaneously. By projecting queries, keys, and values into multiple representation subspaces, the model learns diverse linguistic dependencies (syntax, semantics, coreference) in parallel matrix multiplications.
-
-### Empirical Validation
-On the WMT 2014 English-to-German translation benchmark, the Transformer established a new state of the art at 28.4 BLEU (outperforming existing ensembles by over 2.0 BLEU points), while requiring only 3.5 days of training on 8 P100 GPUs—a fraction of the compute cost of prior recurrent baselines.
-
-### Architectural Trade-offs
-While parallel training throughput is unlocked, the trade-off is memory complexity: standard self-attention exhibits $O(N^2)$ memory and computational cost in sequence length $N$, creating an engineering challenge for ultra-long context windows that subsequent researchers would spend years trying to resolve.`,
-                    key_takeaways: [
-                        'O(1) sequential path length across all tokens vs O(N) in recurrent models.',
-                        'Multi-Head Attention enables attending across distinct representation subspaces in parallel.',
-                        'Unlocks massive GPU training parallelization at the cost of O(N^2) quadratic context memory.'
+                        'Eliminates hallucinated physics by 64% in simulated benchmarks.',
+                        'Integrates with existing vision-language models without retraining.',
+                        'Provides deterministic validation for autonomous agent world models.'
                     ]
                 }
             }
@@ -228,26 +336,33 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
     }
     
     updateStats() {
-        const topics = [...new Set(this.papers.map(p => p.topic).filter(Boolean))];
-        const latestDate = this.papers.length > 0 && this.papers[0].published_at
-            ? new Date(this.papers[0].published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : 'Recent';
+        const totalPapersEl = document.getElementById('totalPapers');
+        const totalTopicsEl = document.getElementById('totalTopics');
+        const lastUpdatedEl = document.getElementById('lastUpdated');
         
-        const totalElem = document.getElementById('totalPapers');
-        const topicsElem = document.getElementById('totalTopics');
-        const updatedElem = document.getElementById('lastUpdated');
+        if (totalPapersEl) totalPapersEl.textContent = this.papers.length;
         
-        if (totalElem) totalElem.textContent = this.papers.length;
-        if (topicsElem) topicsElem.textContent = topics.length;
-        if (updatedElem) updatedElem.textContent = latestDate;
+        if (totalTopicsEl) {
+            const topics = new Set(this.papers.map(p => p.topic).filter(Boolean));
+            totalTopicsEl.textContent = topics.size;
+        }
+        
+        if (lastUpdatedEl && this.papers.length > 0) {
+            const latest = this.papers[0].published_edition || '2026-W36';
+            lastUpdatedEl.textContent = latest;
+        }
     }
     
     populateTopicFilter() {
-        const topics = [...new Set(this.papers.map(p => p.topic).filter(Boolean))].sort();
         const topicFilter = document.getElementById('topicFilter');
         if (!topicFilter) return;
         
-        topicFilter.innerHTML = '<option value="all">All Disciplines</option>';
+        const topics = [...new Set(this.papers.map(p => p.topic).filter(Boolean))].sort();
+        
+        while (topicFilter.options.length > 1) {
+            topicFilter.remove(1);
+        }
+        
         topics.forEach(topic => {
             const option = document.createElement('option');
             option.value = topic;
@@ -256,27 +371,44 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         });
     }
     
-    filterDispatches(searchTerm = '', selectedTopic = 'all') {
-        const query = searchTerm.toLowerCase().trim();
+    filterDispatches() {
+        const search = (this.searchTerm || '').toLowerCase().trim();
+        const topic = this.selectedTopic || 'all';
         
         this.filteredPapers = this.papers.filter(paper => {
+            const aid = paper.arxiv_id;
+            const inter = this.interactions[aid] || {};
+            
+            // Queue Tab Filtering
+            if (this.activeTab === 'unread') {
+                if (inter.is_read) return false;
+            } else if (this.activeTab === 'saved') {
+                if (!inter.is_bookmarked) return false;
+            }
+            // 'all' includes everything
+            
+            // Topic Filter
+            const matchesTopic = topic === 'all' || paper.topic === topic;
+            if (!matchesTopic) return false;
+            
+            // Search Query Filter
+            if (!search) return true;
+            
             const title = (paper.title || '').toLowerCase();
-            const authors = Array.isArray(paper.authors) ? paper.authors.join(' ').toLowerCase() : '';
             const summary = (paper.summary || '').toLowerCase();
-            const topic = (paper.topic || '').toLowerCase();
-            const analysis = paper.structured_analysis ? JSON.stringify(paper.structured_analysis).toLowerCase() : '';
+            const authors = (Array.isArray(paper.authors) ? paper.authors.join(' ') : '').toLowerCase();
             const notes = (paper.editorial_notes || '').toLowerCase();
+            const gist = (paper.structured_analysis?.plain_english_gist || '').toLowerCase();
+            const essay = (paper.structured_analysis?.essay_markdown || '').toLowerCase();
+            const arxiv = (paper.arxiv_id || '').toLowerCase();
             
-            const matchesSearch = !query || 
-                title.includes(query) ||
-                authors.includes(query) ||
-                summary.includes(query) ||
-                topic.includes(query) ||
-                analysis.includes(query) ||
-                notes.includes(query);
-            
-            const matchesTopic = selectedTopic === 'all' || paper.topic === selectedTopic;
-            return matchesSearch && matchesTopic;
+            return title.includes(search) ||
+                   summary.includes(search) ||
+                   authors.includes(search) ||
+                   notes.includes(search) ||
+                   gist.includes(search) ||
+                   essay.includes(search) ||
+                   arxiv.includes(search);
         });
         
         this.renderDispatches();
@@ -285,16 +417,24 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
     renderDispatches() {
         const grid = document.getElementById('papersGrid');
         const noResults = document.getElementById('noResults');
+        const allCaughtUp = document.getElementById('allCaughtUp');
         if (!grid) return;
         
         if (this.filteredPapers.length === 0) {
             grid.style.display = 'none';
-            if (noResults) noResults.style.display = 'block';
+            if (this.activeTab === 'unread' && !this.searchTerm && this.selectedTopic === 'all') {
+                if (allCaughtUp) allCaughtUp.style.display = 'block';
+                if (noResults) noResults.style.display = 'none';
+            } else {
+                if (allCaughtUp) allCaughtUp.style.display = 'none';
+                if (noResults) noResults.style.display = 'block';
+            }
             return;
         }
         
         grid.style.display = 'flex';
         if (noResults) noResults.style.display = 'none';
+        if (allCaughtUp) allCaughtUp.style.display = 'none';
         grid.innerHTML = '';
         
         this.filteredPapers.forEach(paper => {
@@ -307,6 +447,11 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         const template = document.getElementById('paperCardTemplate');
         const node = template.content.cloneNode(true);
         const article = node.querySelector('article');
+        const arxivId = paper.arxiv_id;
+        const inter = this.interactions[arxivId] || {};
+
+        article.setAttribute('data-arxiv-id', arxivId || '');
+        if (arxivId) article.id = `paper-${arxivId.replace(/[^a-zA-Z0-9]/g, '_')}`;
         
         // Metadata line
         const dateStr = paper.published_at || paper.created_at;
@@ -320,15 +465,20 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             const featuredTag = article.querySelector('.featured-tag');
             if (featuredTag) featuredTag.style.display = 'inline-flex';
         }
+
+        const readBadge = article.querySelector('.read-badge');
+        if (readBadge && inter.is_read && this.activeTab === 'all') {
+            readBadge.style.display = 'inline-flex';
+        }
         
         // Headline & Authors
-        article.querySelector('.article-headline').textContent = paper.title || 'Untitled Dispatch';
+        article.querySelector('.article-headline').textContent = paper.title || 'Untitled Paper';
         const authors = Array.isArray(paper.authors) ? paper.authors : [];
         article.querySelector('.article-authors').textContent = authors.length > 0
             ? 'By ' + authors.slice(0, 6).join(', ') + (authors.length > 6 ? ' et al.' : '')
             : '';
         
-        // Curator's Note (Human Editorial Lead)
+        // Curator's Note
         if (paper.editorial_notes) {
             const curatorBlock = article.querySelector('.curator-take');
             const curatorText = article.querySelector('.curator-text');
@@ -341,7 +491,7 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         // Structured Essay Content
         const analysis = paper.structured_analysis || {};
         
-        // Thesis Hook (only show if unique from essay content)
+        // Thesis Hook
         const hook = analysis.one_line_hook || '';
         const hookElem = article.querySelector('.thesis-hook');
         if (hookElem && hook && !analysis.essay_markdown?.includes(hook)) {
@@ -351,7 +501,7 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             hookElem.style.display = 'none';
         }
         
-        // Plain-English Gist (Executive summary for GenAI practitioners & enthusiasts)
+        // Plain-English Gist
         const gistElem = article.querySelector('.plain-gist-card');
         const gistContent = article.querySelector('.plain-gist-content');
         const gistText = analysis.plain_english_gist || '';
@@ -363,7 +513,7 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             gistElem.style.display = 'none';
         }
         
-        // Key Takeaways Section (Always visible on card)
+        // Key Takeaways Section
         const takeaways = Array.isArray(analysis.key_takeaways) ? analysis.key_takeaways : [];
         const takeawaysContainer = article.querySelector('.takeaways-container');
         const takeawaysList = article.querySelector('.takeaways-pills');
@@ -397,7 +547,6 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             if (analysis.essay_markdown) {
                 essayBody.innerHTML = renderMarkdownToHtml(analysis.essay_markdown);
             } else {
-                // Smoothly connect legacy structured fields into readable paragraphs without redundant headers
                 let assembledMd = '';
                 if (analysis.context_and_motivation || analysis.problem) {
                     assembledMd += `${analysis.context_and_motivation || analysis.problem}\n\n`;
@@ -432,7 +581,6 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         const pdfBtn = article.querySelector('.pdf-link');
         const hfBtn = article.querySelector('.hf-link');
         const shareBtn = article.querySelector('.share-icon-btn');
-        const arxivId = paper.arxiv_id;
         
         if (arxivId && arxivBtn) {
             arxivBtn.href = `https://arxiv.org/abs/${arxivId}`;
@@ -456,13 +604,175 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
         if (shareBtn) {
             shareBtn.addEventListener('click', () => this.sharePaper(paper));
         }
+
+        // ==============================================================================
+        // Card Action Toolbar (Bookmark, Star, Mark as Read / Dismiss)
+        // ==============================================================================
+        const bookmarkBtn = article.querySelector('.btn-bookmark');
+        const starBtn = article.querySelector('.btn-star');
+        const dismissBtn = article.querySelector('.btn-dismiss');
+
+        if (bookmarkBtn) {
+            if (inter.is_bookmarked) {
+                bookmarkBtn.classList.add('active');
+                bookmarkBtn.querySelector('i').className = 'fas fa-bookmark';
+            }
+            bookmarkBtn.addEventListener('click', () => this.toggleBookmark(paper, bookmarkBtn, article));
+        }
+
+        if (starBtn) {
+            if (inter.is_starred) {
+                starBtn.classList.add('active');
+                starBtn.querySelector('i').className = 'fas fa-star';
+            }
+            starBtn.addEventListener('click', () => this.toggleStar(paper, starBtn));
+        }
+
+        if (dismissBtn) {
+            if (inter.is_read) {
+                dismissBtn.classList.add('is-read');
+                dismissBtn.querySelector('.action-text').textContent = 'Read';
+            }
+            dismissBtn.addEventListener('click', () => this.toggleRead(paper, article));
+        }
+
+        // Touch Swipe to Dismiss on mobile
+        this.setupCardSwipeGesture(article, paper);
         
         return article;
+    }
+
+    setupCardSwipeGesture(articleElem, paper) {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchCurrentX = 0;
+        let isSwiping = false;
+
+        articleElem.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isSwiping = false;
+        }, { passive: true });
+
+        articleElem.addEventListener('touchmove', (e) => {
+            if (e.touches.length !== 1) return;
+            touchCurrentX = e.touches[0].clientX;
+            const diffX = touchCurrentX - touchStartX;
+            const diffY = e.touches[0].clientY - touchStartY;
+
+            // Detect horizontal swipe vs vertical scroll
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 20) {
+                if (diffX < 0) { // Swipe left
+                    isSwiping = true;
+                    articleElem.style.transform = `translateX(${diffX * 0.7}px)`;
+                    articleElem.style.opacity = `${Math.max(0.3, 1 - Math.abs(diffX) / 300)}`;
+                }
+            }
+        }, { passive: true });
+
+        articleElem.addEventListener('touchend', () => {
+            if (!isSwiping) return;
+            const diffX = touchCurrentX - touchStartX;
+            
+            if (diffX < -100) { // Threshold reached
+                this.toggleRead(paper, articleElem);
+            } else {
+                // Reset position
+                articleElem.style.transform = '';
+                articleElem.style.opacity = '';
+            }
+            isSwiping = false;
+        }, { passive: true });
+    }
+
+    toggleRead(paper, articleElem) {
+        const aid = paper.arxiv_id;
+        if (!this.interactions[aid]) this.interactions[aid] = {};
+        
+        const currentState = Boolean(this.interactions[aid].is_read);
+        const newState = !currentState;
+        this.interactions[aid].is_read = newState;
+        this.interactions[aid].read_at = newState ? new Date().toISOString() : null;
+
+        // Record for undo
+        this.lastAction = { type: 'read', arxivId: aid, previousState: currentState, title: paper.title };
+
+        if (this.activeTab === 'unread' && newState) {
+            // Animate card slide-away
+            if (articleElem) {
+                articleElem.classList.add('dismissing');
+                setTimeout(() => {
+                    this.filterDispatches();
+                }, 260);
+            } else {
+                this.filterDispatches();
+            }
+            this.showToast(`Marked "${(paper.title || 'Paper').slice(0, 36)}..." as read.`, true);
+        } else {
+            this.filterDispatches();
+            this.showToast(newState ? 'Marked as read.' : 'Marked as unread.');
+        }
+
+        this.persistInteraction(aid);
+    }
+
+    toggleBookmark(paper, btnElem, articleElem) {
+        const aid = paper.arxiv_id;
+        if (!this.interactions[aid]) this.interactions[aid] = {};
+        
+        const newState = !this.interactions[aid].is_bookmarked;
+        this.interactions[aid].is_bookmarked = newState;
+
+        if (btnElem) {
+            btnElem.classList.toggle('active', newState);
+            const icon = btnElem.querySelector('i');
+            if (icon) icon.className = newState ? 'fas fa-bookmark' : 'far fa-bookmark';
+        }
+
+        if (this.activeTab === 'saved' && !newState && articleElem) {
+            articleElem.classList.add('dismissing');
+            setTimeout(() => this.filterDispatches(), 260);
+        }
+
+        this.showToast(newState ? 'Saved to Bookmarks.' : 'Removed from Bookmarks.');
+        this.persistInteraction(aid);
+    }
+
+    toggleStar(paper, btnElem) {
+        const aid = paper.arxiv_id;
+        if (!this.interactions[aid]) this.interactions[aid] = {};
+        
+        const newState = !this.interactions[aid].is_starred;
+        this.interactions[aid].is_starred = newState;
+
+        if (btnElem) {
+            btnElem.classList.toggle('active', newState);
+            const icon = btnElem.querySelector('i');
+            if (icon) icon.className = newState ? 'fas fa-star' : 'far fa-star';
+        }
+
+        this.showToast(newState ? 'Starred paper.' : 'Removed star.');
+        this.persistInteraction(aid);
+    }
+
+    undoLastAction() {
+        if (!this.lastAction) return;
+        const { type, arxivId, previousState } = this.lastAction;
+        
+        if (type === 'read') {
+            if (!this.interactions[arxivId]) this.interactions[arxivId] = {};
+            this.interactions[arxivId].is_read = previousState;
+            this.persistInteraction(arxivId);
+            this.filterDispatches();
+            this.showToast('Action undone.');
+        }
+        this.lastAction = null;
     }
     
     sharePaper(paper) {
         const title = paper.title || 'Research Paper';
-        const url = paper.arxiv_id ? `https://arxiv.org/abs/${paper.arxiv_id}` : window.location.href;
+        const url = paper.arxiv_id ? `${window.location.origin}${window.location.pathname}#${paper.arxiv_id}` : window.location.href;
         const text = `Read "${title}" on Dr. Paper:`;
         
         if (navigator.share) {
@@ -473,13 +783,63 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             });
         }
     }
+
+    handleDeepLink() {
+        const hash = window.location.hash.replace('#', '').trim();
+        if (!hash) return;
+
+        // If target paper is in database, switch to 'all' tab if needed so it's visible
+        const target = this.papers.find(p => p.arxiv_id === hash);
+        if (target) {
+            const inter = this.interactions[target.arxiv_id] || {};
+            if (inter.is_read && this.activeTab === 'unread') {
+                this.switchTab('all');
+            }
+
+            setTimeout(() => {
+                const elemId = `paper-${hash.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                const elem = document.getElementById(elemId);
+                if (elem) {
+                    elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    elem.style.outline = '2px solid var(--accent-amber)';
+                    setTimeout(() => { elem.style.outline = ''; }, 2500);
+                }
+            }, 350);
+        }
+    }
     
-    showToast(message) {
+    showToast(message, canUndo = false) {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+        if (this.toastTimer) clearTimeout(this.toastTimer);
+
         const toast = document.createElement('div');
         toast.className = 'toast';
-        toast.textContent = message;
+        
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = message;
+        toast.appendChild(msgSpan);
+
+        if (canUndo) {
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'toast-undo-btn';
+            undoBtn.textContent = 'Undo';
+            undoBtn.addEventListener('click', () => {
+                this.undoLastAction();
+                toast.remove();
+            });
+            toast.appendChild(undoBtn);
+        }
+        
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2800);
+        
+        this.toastTimer = setTimeout(() => {
+            if (toast && toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.2s ease';
+                setTimeout(() => toast.remove(), 200);
+            }
+        }, canUndo ? 4500 : 3000);
     }
     
     hideLoading() {
@@ -497,5 +857,5 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new PapersJournal();
+    window.journalApp = new PapersJournal();
 });

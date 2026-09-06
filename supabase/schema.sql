@@ -78,8 +78,36 @@ create policy "Service role manage papers" on dr_paper.papers
 create policy "Service role manage runs" on dr_paper.runs
     for all using (auth.role() = 'service_role');
 
--- 6. Role Grants
+-- 6. User Interactions & Reading State table
+create table if not exists dr_paper.user_interactions (
+    id uuid primary key default gen_random_uuid(),
+    user_id text not null default 'default',
+    arxiv_id text not null references dr_paper.papers(arxiv_id) on delete cascade,
+    is_read boolean not null default false,
+    is_bookmarked boolean not null default false,
+    is_starred boolean not null default false,
+    read_at timestamptz,
+    updated_at timestamptz default now(),
+    unique (user_id, arxiv_id)
+);
+
+create index if not exists idx_dr_paper_interactions_user on dr_paper.user_interactions (user_id);
+create index if not exists idx_dr_paper_interactions_arxiv on dr_paper.user_interactions (arxiv_id);
+
+alter table dr_paper.user_interactions enable row level security;
+
+drop policy if exists "Allow public select on user_interactions" on dr_paper.user_interactions;
+create policy "Allow public select on user_interactions"
+    on dr_paper.user_interactions for select using (true);
+
+drop policy if exists "Allow public upsert on user_interactions" on dr_paper.user_interactions;
+create policy "Allow public upsert on user_interactions"
+    on dr_paper.user_interactions for all using (true) with check (true);
+
+-- 7. Role Grants
 grant select on dr_paper.papers to anon, authenticated, service_role;
 grant select on dr_paper.runs to anon, authenticated, service_role;
+grant all on dr_paper.user_interactions to anon, authenticated, service_role;
 grant all on dr_paper.papers to service_role;
 grant all on dr_paper.runs to service_role;
+

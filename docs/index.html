@@ -45,6 +45,24 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Queue & Status Tabs -->
+            <div class="queue-bar">
+                <div class="feed-tabs" role="tablist">
+                    <button class="feed-tab active" data-tab="unread" id="tabUnread" role="tab" aria-selected="true">
+                        <span class="tab-label">Unread</span>
+                        <span class="tab-count" id="countUnread">0</span>
+                    </button>
+                    <button class="feed-tab" data-tab="saved" id="tabSaved" role="tab" aria-selected="false">
+                        <span class="tab-label">Saved</span>
+                        <span class="tab-count" id="countSaved">0</span>
+                    </button>
+                    <button class="feed-tab" data-tab="all" id="tabAll" role="tab" aria-selected="false">
+                        <span class="tab-label">All</span>
+                        <span class="tab-count" id="countAll">0</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -62,6 +80,19 @@
 
             <div id="papersGrid" class="dispatches-flow">
                 <!-- Dynamic Article Papers will be injected here -->
+            </div>
+
+            <!-- All Caught Up State -->
+            <div id="allCaughtUp" class="all-caught-up" style="display: none;">
+                <div class="caught-up-circle">
+                    <i class="fas fa-check"></i>
+                </div>
+                <h3>You're All Caught Up</h3>
+                <p>You have reviewed all latest research papers in your queue.</p>
+                <div class="caught-up-actions">
+                    <button id="viewArchiveBtn" class="btn-outline">Browse All Papers</button>
+                    <button id="viewSavedBtn" class="btn-outline">View Saved (<span id="savedEmptyCount">0</span>)</button>
+                </div>
             </div>
 
             <div id="noResults" class="no-dispatches" style="display: none;">
@@ -98,7 +129,7 @@
 
     <!-- Article Template -->
     <template id="paperCardTemplate">
-        <article class="dispatch-article">
+        <article class="dispatch-article" tabindex="0">
             <header class="article-header">
                 <div class="article-meta-top">
                     <span class="article-edition"></span>
@@ -107,6 +138,7 @@
                     <span class="meta-separator">•</span>
                     <span class="article-topic"></span>
                     <span class="featured-tag" style="display: none;">Featured</span>
+                    <span class="read-badge" style="display: none;">Read</span>
                 </div>
                 
                 <h2 class="article-headline"></h2>
@@ -158,7 +190,7 @@
                 </div>
             </div>
 
-            <!-- Article Footer Links -->
+            <!-- Article Footer Links & Action Toolbar -->
             <footer class="article-footer">
                 <div class="article-links">
                     <a href="#" class="btn-link arxiv-link" target="_blank">
@@ -171,9 +203,24 @@
                         <i class="fas fa-comments"></i> HF Discussion
                     </a>
                 </div>
-                <button class="share-icon-btn" type="button" title="Share Paper">
-                    <i class="fas fa-share-alt"></i>
-                </button>
+
+                <div class="card-action-bar">
+                    <button class="card-action-btn btn-bookmark" type="button" title="Save paper for later">
+                        <i class="far fa-bookmark"></i>
+                        <span class="action-text">Save</span>
+                    </button>
+                    <button class="card-action-btn btn-star" type="button" title="Star recommendation">
+                        <i class="far fa-star"></i>
+                        <span class="action-text">Star</span>
+                    </button>
+                    <button class="card-action-btn btn-dismiss" type="button" title="Mark as read & remove from unread queue">
+                        <i class="fas fa-check"></i>
+                        <span class="action-text">Done</span>
+                    </button>
+                    <button class="share-icon-btn" type="button" title="Share Paper">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
             </footer>
         </article>
     </template>

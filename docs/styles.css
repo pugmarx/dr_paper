@@ -158,8 +158,65 @@ body {
 .editorial-bar {
     display: flex;
     gap: 0.75rem;
-    padding: 0.75rem 0;
+    padding: 0.75rem 0 0.5rem 0;
     border-top: 1px solid var(--border-light);
+}
+
+.queue-bar {
+    padding: 0.25rem 0 0.85rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.feed-tabs {
+    display: inline-flex;
+    background-color: var(--bg-subtle);
+    padding: 3px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    gap: 2px;
+}
+
+.feed-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: calc(var(--radius-md) - 2px);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.825rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-sans);
+}
+
+.feed-tab:hover {
+    color: var(--text-ink);
+}
+
+.feed-tab.active {
+    background-color: var(--bg-page);
+    color: var(--text-ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.tab-count {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    background-color: var(--bg-inset);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.feed-tab.active .tab-count {
+    background-color: var(--border-light);
+    color: var(--text-ink);
 }
 
 .search-box {
@@ -599,6 +656,171 @@ body {
     color: #f87171;
 }
 
+.read-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.5rem;
+    background-color: var(--bg-subtle);
+    color: var(--text-muted);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+}
+
+.card-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.card-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-subtle);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    font-family: var(--font-sans);
+}
+
+.card-action-btn:hover {
+    color: var(--text-ink);
+    border-color: var(--border-emphasis);
+    background-color: var(--bg-inset);
+}
+
+.card-action-btn.btn-bookmark.active {
+    color: #2563eb;
+    background-color: rgba(37, 99, 235, 0.08);
+    border-color: rgba(37, 99, 235, 0.3);
+}
+
+[data-theme="dark"] .card-action-btn.btn-bookmark.active {
+    color: #60a5fa;
+    background-color: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.4);
+}
+
+.card-action-btn.btn-bookmark.active i {
+    font-weight: 900;
+}
+
+.card-action-btn.btn-star.active {
+    color: #d97706;
+    background-color: rgba(217, 119, 6, 0.08);
+    border-color: rgba(217, 119, 6, 0.3);
+}
+
+[data-theme="dark"] .card-action-btn.btn-star.active {
+    color: #fbbf24;
+    background-color: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.4);
+}
+
+.card-action-btn.btn-star.active i {
+    font-weight: 900;
+}
+
+.card-action-btn.btn-dismiss:hover {
+    color: #15803d;
+    background-color: rgba(21, 128, 61, 0.08);
+    border-color: rgba(21, 128, 61, 0.3);
+}
+
+.card-action-btn.btn-dismiss.is-read {
+    color: #15803d;
+    background-color: rgba(21, 128, 61, 0.06);
+}
+
+[data-theme="dark"] .card-action-btn.btn-dismiss:hover {
+    color: #4ade80;
+    background-color: rgba(74, 222, 128, 0.1);
+}
+
+.dispatch-article {
+    transition: transform 0.28s ease, opacity 0.28s ease, margin 0.28s ease, max-height 0.28s ease;
+    touch-action: pan-y;
+}
+
+.dispatch-article.dismissing {
+    opacity: 0;
+    transform: translateX(-50px);
+    pointer-events: none;
+}
+
+/* All Caught Up Empty State */
+.all-caught-up {
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    margin: 1.5rem 0;
+}
+
+.caught-up-circle {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    background-color: rgba(21, 128, 61, 0.1);
+    color: #15803d;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 1.25rem;
+}
+
+[data-theme="dark"] .caught-up-circle {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.all-caught-up h3 {
+    font-family: var(--font-serif);
+    font-size: 1.55rem;
+    color: var(--text-ink);
+    margin: 0 0 0.4rem 0;
+}
+
+.all-caught-up p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 1.5rem 0;
+}
+
+.caught-up-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.btn-outline {
+    background: var(--bg-page);
+    border: 1px solid var(--border-light);
+    color: var(--text-ink);
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--border-emphasis);
+    background-color: var(--bg-subtle);
+}
+
 .share-icon-btn {
     background: none;
     border: 1px solid var(--border-light);
@@ -650,30 +872,68 @@ body {
     text-underline-offset: 3px;
 }
 
-/* Toast */
+/* Toast with Undo */
 .toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
     background: var(--text-ink);
     color: var(--bg-page);
-    padding: 0.75rem 1.25rem;
+    padding: 0.65rem 1rem 0.65rem 1.25rem;
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-card);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     z-index: 1000;
+    animation: toastSlideUp 0.22s ease-out;
+}
+
+.toast-undo-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #38bdf8;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+[data-theme="light"] .toast-undo-btn {
+    color: #60a5fa;
+    border-color: rgba(0,0,0,0.25);
+}
+
+.toast-undo-btn:hover {
+    background-color: rgba(255,255,255,0.15);
+}
+
+@keyframes toastSlideUp {
+    from { transform: translateY(16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 @media (max-width: 768px) {
     .masthead-top { padding-bottom: 0.65rem; }
     .editorial-bar { padding: 0.5rem 0; flex-direction: column; gap: 0.5rem; }
+    .queue-bar { padding: 0.25rem 0 0.65rem 0; overflow-x: auto; }
+    .feed-tabs { width: 100%; display: flex; justify-content: space-between; }
+    .feed-tab { flex: 1; justify-content: center; padding: 0.4rem 0.5rem; }
     .main-content { padding: 1rem 0 2.5rem 0; }
     .dispatch-article { padding: 1.35rem 1rem; }
     .article-headline { font-size: 1.35rem; }
+    .article-footer { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+    .article-links { justify-content: flex-start; }
+    .card-action-bar { justify-content: space-between; width: 100%; }
+    .card-action-btn { flex: 1; justify-content: center; padding: 0.45rem 0.5rem; }
     .masthead-branding { gap: 0.65rem; }
     .masthead-logo { height: 2.25rem; }
     .journal-title { font-size: 1.5rem; }
     .journal-subtitle { font-size: 0.8rem; }
     .curation-banner { margin-top: 2rem; flex-direction: column; gap: 0.4rem; padding: 0.75rem 1rem; }
     .banner-divider { display: none; }
+    .toast { left: 16px; right: 16px; bottom: 16px; justify-content: space-between; }
 }

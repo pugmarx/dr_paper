@@ -18,7 +18,7 @@ on:
         type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: "weekly-curation"
@@ -33,6 +33,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Keepalive Workflow (Prevent 60-day scheduled run disable)
+        if: github.event_name == 'schedule'
+        uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          time_elapsed: 45
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

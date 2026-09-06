@@ -92,7 +92,7 @@
     <footer class="journal-footer">
         <div class="container">
             <div class="footer-rule"></div>
-            <p class="footer-tagline">Dr. Paper, 2026. Created by <a href="https://github.com/pugmarx/dr_paper" target="_blank">pugmarx</a>. Powered by ☕.</p>
+            <p class="footer-tagline">Dr. Paper, 2026. Curated by <a href="https://github.com/pugmarx/dr_paper" target="_blank">pugmarx</a>.</p>
         </div>
     </footer>
 
@@ -106,7 +106,7 @@
                     <span class="article-date"></span>
                     <span class="meta-separator">•</span>
                     <span class="article-topic"></span>
-                    <span class="featured-tag" style="display: none;"><i class="fas fa-star"></i> Featured Pick</span>
+                    <span class="featured-tag" style="display: none;">Featured</span>
                 </div>
                 
                 <h2 class="article-headline"></h2>
@@ -116,48 +116,46 @@
 
             <!-- Curator's Note (Human Editorial Lead) -->
             <div class="curator-take" style="display: none;">
-                <div class="curator-badge"><i class="fas fa-pen-nib"></i> Curator's Take</div>
+                <div class="curator-badge">Curator's Take</div>
                 <div class="curator-text"></div>
             </div>
 
             <!-- Lead Thesis Hook -->
             <div class="thesis-hook"></div>
 
-            <!-- Deep Dive Essay Sections -->
-            <div class="essay-body">
-                <section class="essay-section context-section">
-                    <h3 class="section-heading">Context & Motivation</h3>
-                    <div class="section-prose context-prose"></div>
-                </section>
-
-                <section class="essay-section mechanism-section">
-                    <h3 class="section-heading">The Core Mechanism</h3>
-                    <div class="section-prose mechanism-prose"></div>
-                </section>
-
-                <section class="essay-section results-section">
-                    <h3 class="section-heading">Empirical Reality Check</h3>
-                    <div class="section-prose results-prose"></div>
-                </section>
-
-                <section class="essay-section critique-section">
-                    <h3 class="section-heading">Critique & Trade-offs</h3>
-                    <div class="section-prose critique-prose"></div>
-                </section>
-
-                <section class="essay-section takeaways-section" style="display: none;">
-                    <h3 class="section-heading">Key Takeaways</h3>
-                    <ul class="takeaways-pills"></ul>
-                </section>
+            <!-- Plain-English Executive Summary (The Gist) -->
+            <div class="plain-gist-card" style="display: none;">
+                <div class="plain-gist-header">
+                    <span>The Gist</span>
+                </div>
+                <div class="plain-gist-content"></div>
             </div>
 
-            <!-- Original Abstract Drawer -->
-            <div class="abstract-drawer">
-                <button class="toggle-abstract-btn" type="button">
-                    <span>Original arXiv Abstract</span>
-                    <i class="fas fa-chevron-down"></i>
+            <!-- Key Takeaways Section (Scannable high-signal summary) -->
+            <div class="takeaways-container" style="display: none;">
+                <div class="takeaways-label">Key Takeaways</div>
+                <ul class="takeaways-pills"></ul>
+            </div>
+
+            <!-- Deep Dive Expandable Section -->
+            <div class="deep-dive-wrapper">
+                <button class="deep-dive-toggle-btn" type="button">
+                    <span class="toggle-label">Read Technical Deep Dive</span>
+                    <i class="fas fa-chevron-down chevron-icon"></i>
                 </button>
-                <div class="abstract-content" style="display: none;"></div>
+                
+                <div class="deep-dive-content" style="display: none;">
+                    <div class="essay-body"></div>
+
+                    <!-- Original Abstract Drawer -->
+                    <div class="abstract-drawer">
+                        <button class="toggle-abstract-btn" type="button">
+                            <span>Original arXiv Abstract</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="abstract-content" style="display: none;"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Article Footer Links -->

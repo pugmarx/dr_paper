@@ -10,7 +10,8 @@ from config import config
 
 class EditorialAnalysis(BaseModel):
     one_line_hook: str = Field(description="A sharp, 1-sentence engineering thesis hook capturing the core tension, trade-off, or architectural insight.")
-    essay_markdown: str = Field(description="A 400-600 word continuous, engaging narrative essay in the style of The Morning Paper with clear paragraph transitions and subheadings.")
+    plain_english_gist: str = Field(description="A 2-3 sentence crystal-clear, plain-English summary for a general tech enthusiast / GenAI practitioner. Explains: 1) What is the real-world problem in simple words? 2) What is the premise? 3) What is this research paper proposing to solve it? No heavy academic jargon.")
+    essay_markdown: str = Field(description="A 400-600 word continuous, engaging narrative essay with clear paragraph transitions and natural, paper-specific subheadings.")
     context_and_motivation: str = Field(description="1-2 narrative paragraphs setting the background: why prior approaches fall short and why this work is needed.")
     core_mechanism: str = Field(description="2 paragraphs detailing how the architecture or algorithmic pipeline works step-by-step.")
     empirical_results: str = Field(description="1 paragraph analyzing hard numbers, baselines compared, and quantitative deltas.")
@@ -31,29 +32,35 @@ class EditorialAnalysis(BaseModel):
 
 REPORTER_FACT_EXTRACTION_PROMPT = """You are a senior AI research scientist extracting raw technical facts from research papers.
 Extract high-fidelity technical specifics:
-1. Core problem and prior art limitations.
+1. Core problem in plain terms and prior art limitations.
 2. Architecture mechanisms, equations, or algorithmic tricks.
 3. Concrete quantitative metrics (exact numbers, benchmark datasets, baseline models).
 4. Concrete engineering limitations, compute overhead, or failure modes.
 Do not use marketing fluff. Focus entirely on engineering accuracy and numbers.
 """
 
-EDITOR_POLISHING_PROMPT = """You are Adrian Colyer writing "The Morning Paper" — the revered research dispatch for senior software and AI systems engineers.
-Your goal is to write a thoughtful, honest, and technically rigorous essay reviewing the paper for your peers.
+EDITOR_POLISHING_PROMPT = """You are Adrian Colyer writing "The Morning Paper" — the revered research dispatch for software and AI systems engineers.
+Your goal is to write a thoughtful, honest, accessible, and technically rigorous essay reviewing the paper.
 
 STYLE & TONE GUIDELINES:
-1. GROUNDED & UNASSUMING:
+1. PLAIN-ENGLISH GIST FIRST:
+   - Always produce a clear, jargon-free 2-3 sentence summary explaining:
+     a) What is the real-world problem in simple terms?
+     b) What is the premise / why does it happen?
+     c) What does this paper propose to solve it?
+     (Write this so a general tech enthusiast or GenAI user instantly grasps the core idea without needing a PhD).
+2. GROUNDED & UNASSUMING:
    - Write like a senior engineer taking careful notes for the team. No hype, no melodrama, no marketing speak.
    - Keep observations honest: if a technique is simply a known heuristic applied to new hardware, state it plainly.
-2. NATURAL, PAPER-SPECIFIC HEADINGS:
+3. NATURAL, PAPER-SPECIFIC HEADINGS:
    - NEVER use formulaic dramatic templates like "The Friction", "The Core Architectural Trick", "Empirical Reality Check", "Where the Catch Lies".
    - Instead, write natural, descriptive markdown headings (###) specific to what the paper is actually doing (e.g. "### Why existing translation benchmarks stall", "### Deterministic verification rules", "### What the empirical results show", "### Practical limitations & trade-offs").
-3. CONTINUOUS NARRATIVE FLOW:
+4. CONTINUOUS NARRATIVE FLOW:
    - Never write disconnected bullet summaries or start paragraphs with robotic fragment verbs like "Introduces...", "Establishes...", "Proposes...".
    - Write fluid paragraphs with natural sentence transitions.
-4. STRICT NEGATIVE CONSTRAINTS (BANNED WORDS):
+5. STRICT NEGATIVE CONSTRAINTS (BANNED WORDS):
    - NEVER use: "delve", "testament", "pivotal", "revolutionary", "game-changer", "groundbreaking", "beacon", "foster", "harness", "in recent years", "it is important to note", "stands as a", "not only... but also", "unlocks the potential", "paves the way", "landscape".
-5. CONCRETE CITATIONS:
+6. CONCRETE CITATIONS:
    - Quote exact numbers, baselines, and dataset names from the text.
 """
 
@@ -133,7 +140,7 @@ Abstract:
 GROQ_FALLBACK_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "llama-3.3-70b-versatile"]
 
 def edit_essay_with_groq(paper: Dict, raw_facts: Optional[Dict], api_key: str, model_name: Optional[str] = None) -> EditorialAnalysis:
-    """Stage 2: Rewrites technical notes into a flowing Adrian Colyer-grade essay using Groq."""
+    """Stage 2: Rewrites technical notes into a flowing, accessible essay using Groq."""
     primary_model = model_name or config.GROQ_MODEL or "openai/gpt-oss-120b"
     models_to_try = [primary_model] + [m for m in GROQ_FALLBACK_MODELS if m != primary_model]
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -151,10 +158,11 @@ Topic: {paper.get('topic', 'General')}
 Technical Extraction Notes & Abstract:
 {facts_text}
 
-Write a full, cohesive narrative dispatch for senior engineers. Return a valid JSON object matching this schema:
+Write a full, cohesive narrative dispatch. Return a valid JSON object matching this schema:
 {{
   "one_line_hook": "A sharp, 1-sentence engineering thesis hook capturing the core insight or tension.",
-  "essay_markdown": "A 400-500 word flowing narrative technical essay with natural paragraph transitions and markdown subheadings (e.g. ### The Tension in Existing Systems, ### The Architectural Trick, ### The Empirical Reality Check, ### Where the Catch Lies).",
+  "plain_english_gist": "A 2-3 sentence crystal-clear, plain-English summary for a general tech enthusiast / GenAI user. Explain in simple terms: 1) What real-world problem does this address? 2) What is the premise? 3) What is the paper proposing to solve it? Avoid heavy jargon.",
+  "essay_markdown": "A 400-500 word flowing narrative technical essay with natural paragraph transitions and descriptive paper-specific markdown subheadings (e.g. ### Why existing translation benchmarks stall, ### Deterministic verification rules, ### What the empirical results show, ### Practical limitations & trade-offs).",
   "context_and_motivation": "1-2 narrative paragraphs setting the background: what breaks in existing approaches and why this work is needed.",
   "core_mechanism": "2 paragraphs detailing the architectural intuition, algorithms, or math mechanics.",
   "empirical_results": "1 paragraph reviewing concrete benchmarks, baselines, and exact numeric deltas.",
@@ -210,7 +218,7 @@ Topic: {paper.get('topic', 'General')}
 Abstract:
 {paper.get('summary')}
 
-Write a full, cohesive narrative dispatch for senior engineers. Return a valid JSON object matching the schema.
+Write a full, cohesive narrative dispatch. Return a valid JSON object matching the schema.
 """
 
     payload = {
@@ -226,6 +234,7 @@ Write a full, cohesive narrative dispatch for senior engineers. Return a valid J
                 "type": "OBJECT",
                 "properties": {
                     "one_line_hook": {"type": "STRING"},
+                    "plain_english_gist": {"type": "STRING"},
                     "essay_markdown": {"type": "STRING"},
                     "context_and_motivation": {"type": "STRING"},
                     "core_mechanism": {"type": "STRING"},
@@ -236,7 +245,7 @@ Write a full, cohesive narrative dispatch for senior engineers. Return a valid J
                         "items": {"type": "STRING"}
                     }
                 },
-                "required": ["one_line_hook", "essay_markdown", "context_and_motivation", "core_mechanism", "empirical_results", "critique_and_tradeoffs", "key_takeaways"]
+                "required": ["one_line_hook", "plain_english_gist", "essay_markdown", "context_and_motivation", "core_mechanism", "empirical_results", "critique_and_tradeoffs", "key_takeaways"]
             },
             "temperature": 0.2
         }
@@ -276,16 +285,18 @@ def fallback_heuristic_editorial(paper: Dict) -> EditorialAnalysis:
     sentences = [s.strip() for s in re.split(r'\.\s+', abstract) if s.strip()]
 
     hook = sentences[0] + "." if len(sentences) > 0 else "Analysis pending publication."
+    gist = sentences[0] + ". " + (sentences[1] + "." if len(sentences) > 1 else "")
     context = sentences[0] + ". " + (sentences[1] + "." if len(sentences) > 1 else "")
     mechanism = " ".join(sentences[1:4]) + "." if len(sentences) > 3 else "Details in paper."
     empirical = " ".join(sentences[4:6]) + "." if len(sentences) > 5 else "Refer to empirical evaluation in full PDF."
     critique = "Computational overhead and benchmark trade-offs require independent replication."
     takeaways = sentences[:3] if len(sentences) >= 3 else [hook, "See full PDF for complete benchmark tables."]
 
-    essay = f"""### Context & Motivation\n\n{context}\n\n### The Core Mechanism\n\n{mechanism}\n\n### Empirical Reality Check\n\n{empirical}\n\n### Critique & Trade-offs\n\n{critique}"""
+    essay = f"""### Overview & Background\n\n{context}\n\n### Core Method\n\n{mechanism}\n\n### Findings\n\n{empirical}\n\n### Practical Limitations\n\n{critique}"""
 
     return EditorialAnalysis(
         one_line_hook=hook,
+        plain_english_gist=gist,
         essay_markdown=essay,
         context_and_motivation=context,
         core_mechanism=mechanism,

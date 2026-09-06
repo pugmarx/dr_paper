@@ -351,40 +351,68 @@ While parallel training throughput is unlocked, the trade-off is memory complexi
             hookElem.style.display = 'none';
         }
         
-        // Essay Body: If essay_markdown exists, render it directly as rich narrative!
-        const essayBody = article.querySelector('.essay-body');
-        if (analysis.essay_markdown) {
-            essayBody.innerHTML = renderMarkdownToHtml(analysis.essay_markdown);
-        } else {
-            // Smoothly connect legacy structured fields into readable paragraphs without redundant headers
-            let assembledMd = '';
-            if (analysis.context_and_motivation || analysis.problem) {
-                assembledMd += `${analysis.context_and_motivation || analysis.problem}\n\n`;
-            }
-            if (analysis.core_mechanism || analysis.innovation) {
-                assembledMd += `### How it works\n\n${analysis.core_mechanism || analysis.innovation}\n\n`;
-            }
-            if (analysis.empirical_results || analysis.impact) {
-                assembledMd += `### Evaluation\n\n${analysis.empirical_results || analysis.impact}\n\n`;
-            }
-            if (analysis.critique_and_tradeoffs) {
-                assembledMd += `### Limitations & Trade-offs\n\n${analysis.critique_and_tradeoffs}\n\n`;
-            }
-            essayBody.innerHTML = renderMarkdownToHtml(assembledMd);
+        // Plain-English Gist (Executive summary for GenAI practitioners & enthusiasts)
+        const gistElem = article.querySelector('.plain-gist-card');
+        const gistContent = article.querySelector('.plain-gist-content');
+        const gistText = analysis.plain_english_gist || '';
+        
+        if (gistElem && gistContent && gistText) {
+            gistContent.textContent = gistText;
+            gistElem.style.display = 'block';
+        } else if (gistElem) {
+            gistElem.style.display = 'none';
         }
         
-        // Key Takeaways Section
+        // Key Takeaways Section (Always visible on card)
         const takeaways = Array.isArray(analysis.key_takeaways) ? analysis.key_takeaways : [];
-        if (takeaways.length > 0) {
-            const takeawaysWrapper = document.createElement('section');
-            takeawaysWrapper.className = 'essay-section takeaways-section';
-            takeawaysWrapper.innerHTML = `
-                <h3 class="section-heading">Key Engineering Takeaways</h3>
-                <ul class="takeaways-pills">
-                    ${takeaways.map(t => `<li>${t}</li>`).join('')}
-                </ul>
-            `;
-            essayBody.appendChild(takeawaysWrapper);
+        const takeawaysContainer = article.querySelector('.takeaways-container');
+        const takeawaysList = article.querySelector('.takeaways-pills');
+        
+        if (takeaways.length > 0 && takeawaysContainer && takeawaysList) {
+            takeawaysList.innerHTML = takeaways.map(t => `<li>${t}</li>`).join('');
+            takeawaysContainer.style.display = 'block';
+        } else if (takeawaysContainer) {
+            takeawaysContainer.style.display = 'none';
+        }
+
+        // Deep Dive Expandable Section
+        const deepDiveToggleBtn = article.querySelector('.deep-dive-toggle-btn');
+        const deepDiveContent = article.querySelector('.deep-dive-content');
+        const toggleLabel = article.querySelector('.toggle-label');
+
+        if (deepDiveToggleBtn && deepDiveContent) {
+            deepDiveToggleBtn.addEventListener('click', () => {
+                const isHidden = deepDiveContent.style.display === 'none';
+                deepDiveContent.style.display = isHidden ? 'block' : 'none';
+                deepDiveToggleBtn.classList.toggle('expanded', isHidden);
+                if (toggleLabel) {
+                    toggleLabel.textContent = isHidden ? 'Hide Technical Deep Dive' : 'Read Technical Deep Dive';
+                }
+            });
+        }
+
+        // Essay Body inside Deep Dive
+        const essayBody = article.querySelector('.essay-body');
+        if (essayBody) {
+            if (analysis.essay_markdown) {
+                essayBody.innerHTML = renderMarkdownToHtml(analysis.essay_markdown);
+            } else {
+                // Smoothly connect legacy structured fields into readable paragraphs without redundant headers
+                let assembledMd = '';
+                if (analysis.context_and_motivation || analysis.problem) {
+                    assembledMd += `${analysis.context_and_motivation || analysis.problem}\n\n`;
+                }
+                if (analysis.core_mechanism || analysis.innovation) {
+                    assembledMd += `### How it works\n\n${analysis.core_mechanism || analysis.innovation}\n\n`;
+                }
+                if (analysis.empirical_results || analysis.impact) {
+                    assembledMd += `### Evaluation\n\n${analysis.empirical_results || analysis.impact}\n\n`;
+                }
+                if (analysis.critique_and_tradeoffs) {
+                    assembledMd += `### Limitations & Trade-offs\n\n${analysis.critique_and_tradeoffs}\n\n`;
+                }
+                essayBody.innerHTML = renderMarkdownToHtml(assembledMd);
+            }
         }
         
         // Abstract Drawer

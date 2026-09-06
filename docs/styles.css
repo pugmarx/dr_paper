@@ -339,12 +339,9 @@ body {
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     color: var(--accent-amber);
     margin-bottom: 0.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
 }
 
 .curator-text {
@@ -363,6 +360,31 @@ body {
     padding: 0.9rem 0 1.25rem 0;
     border-bottom: 1px solid var(--border-light);
     margin-bottom: 1.25rem;
+}
+
+/* Plain-English Gist Box */
+.plain-gist-card {
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.3rem;
+    margin: 1.25rem 0 1.5rem 0;
+}
+
+.plain-gist-header {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-amber);
+    margin-bottom: 0.35rem;
+}
+
+.plain-gist-content {
+    font-size: 0.98rem;
+    color: var(--text-prose);
+    line-height: 1.7;
+    font-family: var(--font-sans);
 }
 
 /* Narrative Essay Body */
@@ -406,7 +428,20 @@ body {
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* Key Takeaways Pills */
+/* Key Takeaways Section */
+.takeaways-container {
+    margin: 1rem 0 1.25rem 0;
+}
+
+.takeaways-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
 .takeaways-pills {
     list-style: none;
     display: flex;
@@ -423,6 +458,55 @@ body {
     padding: 0.5rem 0.85rem;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     line-height: 1.5;
+}
+
+/* Deep Dive Expandable Section */
+.deep-dive-wrapper {
+    margin: 1.25rem 0;
+    border-top: 1px dashed var(--border-light);
+    padding-top: 0.85rem;
+}
+
+.deep-dive-toggle-btn {
+    width: 100%;
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 0.7rem 1rem;
+    color: var(--text-ink);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+}
+
+.deep-dive-toggle-btn:hover {
+    border-color: var(--border-emphasis);
+    background-color: var(--bg-inset);
+}
+
+.deep-dive-toggle-btn i:first-child {
+    margin-right: 0.5rem;
+    color: var(--accent-amber);
+}
+
+.deep-dive-toggle-btn .chevron-icon {
+    font-size: 0.8rem;
+    transition: transform 0.25s ease;
+}
+
+.deep-dive-toggle-btn.expanded .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.deep-dive-content {
+    margin-top: 1.25rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    animation: fadeIn 0.25s ease;
 }
 
 /* Original Abstract Drawer */

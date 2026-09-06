@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" width="1200" height="650" style="background-color: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
+  <style>
+    .box { fill: #ffffff; stroke: #1e293b; stroke-width: 1.5; rx: 4px; }
+    .box-sub { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; rx: 3px; }
+    .title { font-size: 16px; font-weight: 700; fill: #0f172a; }
+    .header { font-size: 13px; font-weight: 700; fill: #334155; letter-spacing: 0.5px; }
+    .subtext { font-size: 11px; fill: #64748b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .label { font-size: 11px; font-weight: 600; fill: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .code { font-size: 10.5px; fill: #0f172a; }
+    .arrow { stroke: #475569; stroke-width: 1.5; fill: none; }
+    .badge { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1; rx: 2px; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569" />
+    </marker>
+  </defs>
+
+  <!-- Canvas Header -->
+  <text x="40" y="42" class="title">System Architecture: Automated Editorial Pipeline</text>
+  <text x="40" y="62" class="subtext">Decoupled 2-Stage LLM Pipeline with Stateless HMAC Human Verification</text>
+
+  <!-- 1. INGESTION WORKER -->
+  <rect x="40" y="90" width="240" height="490" class="box" />
+  <text x="60" y="120" class="header">1. INGESTION WORKER</text>
+  <text x="60" y="138" class="subtext">Scheduled GitHub Actions Runner</text>
+
+  <!-- Trigger -->
+  <rect x="60" y="155" width="200" height="48" class="box-sub" />
+  <text x="72" y="175" class="label">Scheduler / Keepalive</text>
+  <text x="72" y="191" class="code">cron: 0 9 * * 1 (UTC)</text>
+
+  <!-- Sources -->
+  <rect x="60" y="215" width="200" height="110" class="box-sub" />
+  <text x="72" y="235" class="label">Candidate Sources</text>
+  <text x="72" y="255" class="code">• arXiv (cs.CL, cs.AI, cs.LG)</text>
+  <text x="72" y="275" class="code">• HF Daily Papers API</text>
+  <text x="72" y="295" class="code">• AI Newsletter RSS Feeds</text>
+  <text x="72" y="313" class="code">• Semantic Scholar API</text>
+
+  <!-- Filter & Rank -->
+  <rect x="60" y="337" width="200" height="100" class="box-sub" />
+  <text x="72" y="357" class="label">Filtering &amp; Deduplication</text>
+  <text x="72" y="377" class="code">• Cross-source correlation</text>
+  <text x="72" y="397" class="code">• Upvote/mention weighting</text>
+  <text x="72" y="417" class="code">• Domain taxonomy prune</text>
+
+  <!-- Output Payload -->
+  <rect x="60" y="449" width="200" height="110" class="box-sub" />
+  <text x="72" y="469" class="label">Top Candidate Queue</text>
+  <text x="72" y="489" class="code">{</text>
+  <text x="82" y="507" class="code">arxiv_id, title,</text>
+  <text x="82" y="525" class="code">abstract, pdf_url</text>
+  <text x="72" y="543" class="code">}</text>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 280 340 L 328 340" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- 2. 2-STAGE AI PIPELINE -->
+  <rect x="330" y="90" width="270" height="490" class="box" />
+  <text x="350" y="120" class="header">2. 2-STAGE AI PIPELINE</text>
+  <text x="350" y="138" class="subtext">Fact Extraction &amp; Prose Synthesis</text>
+
+  <!-- Stage 1 Reporter -->
+  <rect x="350" y="155" width="230" height="150" class="box-sub" />
+  <text x="362" y="175" class="label">Stage 1: Fact Extractor</text>
+  <text x="362" y="193" class="subtext">Model: Gemini 2.5 Flash</text>
+  <text x="362" y="215" class="code">• Core mechanism extraction</text>
+  <text x="362" y="235" class="code">• Baseline comparisons</text>
+  <text x="362" y="255" class="code">• Concrete numeric deltas</text>
+  <text x="362" y="275" class="code">• Compute/resource cost</text>
+  <text x="362" y="293" class="code">Output: Structured Facts JSON</text>
+
+  <!-- Internal Arrow -->
+  <path d="M 465 305 L 465 328" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- Stage 2 Editor -->
+  <rect x="350" y="330" width="230" height="165" class="box-sub" />
+  <text x="362" y="350" class="label">Stage 2: Narrative Synthesis</text>
+  <text x="362" y="368" class="subtext">Model: Groq (Open Weights)</text>
+  <text x="362" y="390" class="code">• Formats structured facts</text>
+  <text x="362" y="410" class="code">• Context-specific headings</text>
+  <text x="362" y="430" class="code">• Human practitioner voice</text>
+  <text x="362" y="450" class="code">• Negative constraints</text>
+  <text x="372" y="468" class="code">(Banned generic filler words)</text>
+  <text x="362" y="484" class="code">Output: 450w Technical Essay</text>
+
+  <!-- Staging DB Write -->
+  <rect x="350" y="507" width="230" height="52" class="box-sub" />
+  <text x="362" y="527" class="label">Staging Write</text>
+  <text x="362" y="545" class="code">status: 'draft' &#8594; dr_paper.papers</text>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 600 340 L 648 340" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- 3. HUMAN VERIFICATION -->
+  <rect x="650" y="90" width="250" height="490" class="box" />
+  <text x="670" y="120" class="header">3. HUMAN VERIFICATION</text>
+  <text x="670" y="138" class="subtext">Stateless HMAC Mobile Approval</text>
+
+  <!-- Telegram Dispatcher -->
+  <rect x="670" y="155" width="210" height="125" class="box-sub" />
+  <text x="682" y="175" class="label">Telegram Review Bot</text>
+  <text x="682" y="195" class="code">• Formatted summary card</text>
+  <text x="682" y="215" class="code">• Title, Abstract, The Gist</text>
+  <text x="682" y="235" class="code">• 1-Tap Action URLs:</text>
+  <text x="692" y="255" class="code">[Publish] [Reject]</text>
+  <text x="692" y="270" class="subtext">Includes HMAC-SHA256 signature</text>
+
+  <!-- Arrow TG to Edge -->
+  <path d="M 775 280 L 775 303" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- Edge Function -->
+  <rect x="670" y="305" width="210" height="150" class="box-sub" />
+  <text x="682" y="325" class="label">Supabase Edge Function</text>
+  <text x="682" y="343" class="subtext">Deno Serverless Runtime</text>
+  <text x="682" y="365" class="code">• Validates HMAC token</text>
+  <text x="682" y="385" class="code">• SQL: UPDATE status</text>
+  <text x="692" y="405" class="code">'draft' &#8594; 'published'</text>
+  <text x="682" y="425" class="code">• Sets published_at timestamp</text>
+  <text x="682" y="443" class="code">• Returns status HTML</text>
+
+  <!-- Optional CLI -->
+  <rect x="670" y="467" width="210" height="92" class="box-sub" />
+  <text x="682" y="487" class="label">Alternative Review Interface</text>
+  <text x="682" y="507" class="code">CLI: pipeline.py --review</text>
+  <text x="682" y="527" class="code">• Step-through review</text>
+  <text x="682" y="547" class="code">• Add custom Curator Note</text>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 900 340 L 948 340" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- 4. DATA & SERVING -->
+  <rect x="950" y="90" width="210" height="490" class="box" />
+  <text x="970" y="120" class="header">4. DATA &amp; SERVING</text>
+  <text x="970" y="138" class="subtext">Database &amp; Static Client</text>
+
+  <!-- Database -->
+  <rect x="970" y="155" width="170" height="150" class="box-sub" />
+  <text x="982" y="175" class="label">PostgreSQL (Supabase)</text>
+  <text x="982" y="193" class="subtext">Schema: dr_paper</text>
+  <text x="982" y="215" class="code">• papers (content)</text>
+  <text x="982" y="235" class="code">• user_interactions</text>
+  <text x="982" y="255" class="code">RLS Policies:</text>
+  <text x="992" y="275" class="code">SELECT where</text>
+  <text x="992" y="293" class="code">status='published'</text>
+
+  <!-- Arrow DB to UI -->
+  <path d="M 1055 305 L 1055 328" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- Client -->
+  <rect x="970" y="330" width="170" height="230" class="box-sub" />
+  <text x="982" y="350" class="label">Static Web Client</text>
+  <text x="982" y="368" class="subtext">Direct PostgREST API</text>
+  <text x="982" y="390" class="code">• Fetch published feed</text>
+  <text x="982" y="410" class="code">• Unread Queue filter</text>
+  <text x="982" y="430" class="code">• Bookmark / Star state</text>
+  <text x="982" y="450" class="code">• Mobile swipe gestures</text>
+  <text x="982" y="470" class="code">• localStorage cache</text>
+  <text x="982" y="490" class="code">• Merge-duplicate sync</text>
+  <text x="992" y="508" class="code">to user_interactions</text>
+  <text x="982" y="530" class="subtext">Hosted on CDN / Space</text>
+</svg>

@@ -94,10 +94,11 @@ def build_review_inline_keyboard(arxiv_id: str) -> Dict:
     """Build minimalist 1-click URL buttons that update Supabase serverlessly without background listeners"""
     base_url = f"{config.SUPABASE_URL}/functions/v1/moderate"
     token_param = f"&token={config.MODERATION_TOKEN}" if config.MODERATION_TOKEN else ""
+    apikey_param = f"&apikey={config.SUPABASE_ANON_KEY}" if config.SUPABASE_ANON_KEY else ""
     
-    pub_url = f"{base_url}?id={arxiv_id}&action=pub{token_param}"
-    feat_url = f"{base_url}?id={arxiv_id}&action=feat{token_param}"
-    rej_url = f"{base_url}?id={arxiv_id}&action=rej{token_param}"
+    pub_url = f"{base_url}?id={arxiv_id}&action=pub{token_param}{apikey_param}"
+    feat_url = f"{base_url}?id={arxiv_id}&action=feat{token_param}{apikey_param}"
+    rej_url = f"{base_url}?id={arxiv_id}&action=rej{token_param}{apikey_param}"
     arxiv_url = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else "https://arxiv.org"
 
     return {

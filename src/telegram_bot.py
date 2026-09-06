@@ -91,14 +91,21 @@ def format_paper_card_html(paper: Dict) -> str:
     return "\n".join(lines).strip()
 
 def build_review_inline_keyboard(arxiv_id: str) -> Dict:
-    """Build minimalist interactive inline buttons without emojis"""
+    """Build minimalist 1-click URL buttons that update Supabase serverlessly without background listeners"""
+    base_url = f"{config.SUPABASE_URL}/functions/v1/moderate"
+    token_param = f"&token={config.MODERATION_TOKEN}" if config.MODERATION_TOKEN else ""
+    
+    pub_url = f"{base_url}?id={arxiv_id}&action=pub{token_param}"
+    feat_url = f"{base_url}?id={arxiv_id}&action=feat{token_param}"
+    rej_url = f"{base_url}?id={arxiv_id}&action=rej{token_param}"
     arxiv_url = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else "https://arxiv.org"
+
     return {
         "inline_keyboard": [
             [
-                {"text": "Publish", "callback_data": f"pub:{arxiv_id}"},
-                {"text": "Feature", "callback_data": f"feat:{arxiv_id}"},
-                {"text": "Reject", "callback_data": f"rej:{arxiv_id}"}
+                {"text": "Publish", "url": pub_url},
+                {"text": "Feature", "url": feat_url},
+                {"text": "Reject", "url": rej_url}
             ],
             [
                 {"text": "arXiv", "url": arxiv_url}

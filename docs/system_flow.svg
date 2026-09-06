@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" width="1100" height="480" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <style>
+    .node-box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 6px; }
+    .node-title { font-size: 13px; font-weight: 700; fill: #0f172a; }
+    .node-tech { font-size: 11px; font-weight: 600; fill: #2563eb; }
+    .node-desc { font-size: 11px; fill: #64748b; }
+    .step-badge { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1; rx: 3px; }
+    .step-text { font-size: 10px; font-weight: 700; fill: #475569; }
+    .icon-bg { fill: #f1f5f9; rx: 4px; }
+    .icon-stroke { stroke: #334155; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-fill { fill: #334155; }
+    .flow-line { stroke: #475569; stroke-width: 1.5; fill: none; }
+    .flow-label { font-size: 10.5px; fill: #475569; font-weight: 500; }
+  </style>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569" />
+    </marker>
+
+    <!-- Icons -->
+    <g id="icon-cron">
+      <circle cx="12" cy="12" r="8" class="icon-stroke" />
+      <polyline points="12,8 12,12 15,14" class="icon-stroke" />
+    </g>
+
+    <g id="icon-source">
+      <path d="M6 3 H14 L18 7 V19 H6 Z" class="icon-stroke" />
+      <polyline points="14,3 14,7 18,7" class="icon-stroke" />
+      <line x1="9" y1="11" x2="15" y2="11" class="icon-stroke" />
+    </g>
+
+    <g id="icon-ai">
+      <rect x="5" y="5" width="14" height="14" rx="2" class="icon-stroke" />
+      <circle cx="12" cy="12" r="2.5" class="icon-stroke" />
+      <line x1="12" y1="2" x2="12" y2="5" class="icon-stroke" />
+      <line x1="12" y1="19" x2="12" y2="22" class="icon-stroke" />
+      <line x1="2" y1="12" x2="5" y2="12" class="icon-stroke" />
+      <line x1="19" y1="12" x2="22" y2="12" class="icon-stroke" />
+    </g>
+
+    <g id="icon-bot">
+      <rect x="5" y="6" width="14" height="12" rx="2" class="icon-stroke" />
+      <circle cx="9" cy="11" r="1" class="icon-fill" />
+      <circle cx="15" cy="11" r="1" class="icon-fill" />
+      <line x1="12" y1="2" x2="12" y2="6" class="icon-stroke" />
+      <circle cx="12" cy="2" r="1" class="icon-fill" />
+    </g>
+
+    <g id="icon-human">
+      <circle cx="12" cy="7" r="4" class="icon-stroke" />
+      <path d="M4 20 C4 15 8 13 12 13 C16 13 20 15 20 20" class="icon-stroke" />
+    </g>
+
+    <g id="icon-edge">
+      <path d="M13 2 L4 13 H11 L10 22 L20 10 H13 Z" class="icon-stroke" />
+    </g>
+
+    <g id="icon-db">
+      <ellipse cx="12" cy="6" rx="8" ry="3" class="icon-stroke" />
+      <path d="M4 6 v5 c0 1.66 3.58 3 8 3 s8 -1.34 8 -3 V6" class="icon-stroke" />
+      <path d="M4 11 v5 c0 1.66 3.58 3 8 3 s8 -1.34 8 -3 V11" class="icon-stroke" />
+    </g>
+
+    <g id="icon-web">
+      <rect x="3" y="4" width="18" height="15" rx="2" class="icon-stroke" />
+      <line x1="3" y1="8" x2="21" y2="8" class="icon-stroke" />
+      <circle cx="6" cy="6" r="0.75" class="icon-fill" />
+      <circle cx="9" cy="6" r="0.75" class="icon-fill" />
+    </g>
+  </defs>
+
+  <!-- Header -->
+  <text x="40" y="38" font-size="16" font-weight="700" fill="#0f172a">Dr. Paper: High-Level System Control Flow</text>
+  <text x="40" y="56" font-size="11" fill="#64748b">End-to-end technical stack and interaction sequence</text>
+
+  <!-- ================= TOP ROW: INGESTION & PIPELINE ================= -->
+
+  <!-- Node 1: Scheduler -->
+  <g transform="translate(40, 90)">
+    <rect width="180" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-cron" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Scheduler</text>
+    <text x="46" y="38" class="node-tech">GitHub Actions</text>
+    <text x="14" y="65" class="node-desc">Weekly cron runner (0 9 * * 1)</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 220 135 L 268 135" class="flow-line" marker-end="url(#arrow)" />
+
+  <!-- Node 2: Sources -->
+  <g transform="translate(270, 90)">
+    <rect width="180" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-source" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Data Ingestion</text>
+    <text x="46" y="38" class="node-tech">arXiv / HF Papers</text>
+    <text x="14" y="65" class="node-desc">Fetches &amp; ranks preprints</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 450 135 L 498 135" class="flow-line" marker-end="url(#arrow)" />
+
+  <!-- Node 3: AI Pipeline -->
+  <g transform="translate(500, 90)">
+    <rect width="210" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-ai" x="13" y="13" />
+    <text x="46" y="24" class="node-title">2-Stage AI Engine</text>
+    <text x="46" y="38" class="node-tech">Gemini Flash + Groq</text>
+    <text x="14" y="65" class="node-desc">Fact extraction &#8594; Essay synthesis</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 710 135 L 758 135" class="flow-line" marker-end="url(#arrow)" />
+
+  <!-- Node 4: Telegram Dispatcher -->
+  <g transform="translate(760, 90)">
+    <rect width="190" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-bot" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Notification Bot</text>
+    <text x="46" y="38" class="node-tech">Telegram Bot API</text>
+    <text x="14" y="65" class="node-desc">Sends draft card with 1-tap link</text>
+  </g>
+
+  <!-- Vertical Connection from Telegram (Top Right) down to Curator (Bottom Right) -->
+  <path d="M 855 180 L 855 248" class="flow-line" marker-end="url(#arrow)" />
+  <text x="865" y="220" class="flow-label">Dispatch card</text>
+
+  <!-- ================= BOTTOM ROW: MODERATION & SERVING ================= -->
+
+  <!-- Node 5: Human Curator (Bottom Right) -->
+  <g transform="translate(760, 250)">
+    <rect width="190" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-human" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Curator Review</text>
+    <text x="46" y="38" class="node-tech">Mobile Telegram</text>
+    <text x="14" y="65" class="node-desc">1-Tap tap on [Publish]</text>
+  </g>
+
+  <!-- Arrow 5 -> 6 (Right to Left) -->
+  <path d="M 760 295 L 712 295" class="flow-line" marker-end="url(#arrowhead)" />
+  <text x="720" y="285" class="flow-label">Tap action</text>
+
+  <!-- Node 6: Edge Function -->
+  <g transform="translate(500, 250)">
+    <rect width="210" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-edge" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Edge Function</text>
+    <text x="46" y="38" class="node-tech">Supabase Deno Runtime</text>
+    <text x="14" y="65" class="node-desc">Updates status: 'published'</text>
+  </g>
+
+  <!-- Arrow 6 -> 7 -->
+  <path d="M 500 295 L 452 295" class="flow-line" marker-end="url(#arrowhead)" />
+
+  <!-- Node 7: Database -->
+  <g transform="translate(270, 250)">
+    <rect width="180" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-db" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Database</text>
+    <text x="46" y="38" class="node-tech">PostgreSQL (Supabase)</text>
+    <text x="14" y="65" class="node-desc">Stores papers &amp; reading state</text>
+  </g>
+
+  <!-- Arrow 7 -> 8 -->
+  <path d="M 270 295 L 222 295" class="flow-line" marker-end="url(#arrowhead)" />
+
+  <!-- Node 8: Web UI -->
+  <g transform="translate(40, 250)">
+    <rect width="180" height="90" class="node-box" />
+    <rect x="12" y="12" width="26" height="26" class="icon-bg" />
+    <use href="#icon-web" x="13" y="13" />
+    <text x="46" y="24" class="node-title">Web Reader</text>
+    <text x="46" y="38" class="node-tech">Hugging Face Space</text>
+    <text x="14" y="65" class="node-desc">Direct PostgREST client</text>
+  </g>
+
+  <!-- Bottom Summary Line -->
+  <rect x="40" y="370" width="910" height="42" class="node-box" fill="#f8fafc" />
+  <text x="55" y="395" font-size="11" font-weight="600" fill="#334155">Flow:</text>
+  <text x="95" y="395" font-size="11" fill="#64748b">Cron &#8594; Ingest Sources &#8594; 2-Stage AI &#8594; Telegram Bot &#8594; Curator Review &#8594; Edge Function &#8594; PostgreSQL &#8594; Web Reader</text>
+</svg>

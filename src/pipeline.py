@@ -14,21 +14,21 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from config import config
-from fetch import fetch_weekly_candidate_papers
+from fetch import fetch_rolling_candidate_papers, fetch_weekly_candidate_papers
 from summarizer import assess_paper
 from db import db
 
-def run_dry_run(limit: int = 10):
-    """Fetch and score top weekly candidate papers without LLM calls or DB writes"""
+def run_dry_run(limit: int = 5):
+    """Fetch and score top candidate papers across rolling 7-day window without LLM calls or DB writes"""
     print("=" * 70)
-    print(f"🔬 Dr. Paper: Weekly Candidate Dry Run (Limit: {limit})")
+    print(f"🔬 Dr. Paper: Rolling Candidate Dry Run (Limit: {limit})")
     print("=" * 70)
 
     start_time = time.time()
-    papers = fetch_weekly_candidate_papers(limit=limit)
+    papers = fetch_rolling_candidate_papers(limit=limit, days_back=7)
     elapsed = time.time() - start_time
 
-    print(f"\n[+] Fetched and scored {len(papers)} weekly candidates in {elapsed:.2f}s:\n")
+    print(f"\n[+] Fetched and scored {len(papers)} candidate papers in {elapsed:.2f}s:\n")
     for idx, p in enumerate(papers, 1):
         print(f"{idx}. [{p['score']:>4.1f}] {p['title']}")
         print(f"    arXiv: {p['arxiv_id']} | Source: {p['curated_source']} | Edition: {p['published_edition']}")
@@ -38,13 +38,13 @@ def run_dry_run(limit: int = 10):
     print("[*] Dry run completed. No LLM calls or database writes were performed.")
     return papers
 
-def run_local(limit: int = 3, output_json: Optional[str] = "docs/papers.json"):
-    """Run weekly ingestion and LLM assessment locally without writing to Supabase"""
+def run_local(limit: int = 2, output_json: Optional[str] = "docs/papers.json"):
+    """Run rolling candidate ingestion and LLM assessment locally without writing to Supabase"""
     print("=" * 70)
     print(f"🧪 Dr. Paper: Local Testing Mode (LLM Provider: {config.LLM_PROVIDER})")
     print("=" * 70)
 
-    papers = fetch_weekly_candidate_papers(limit=limit)
+    papers = fetch_rolling_candidate_papers(limit=limit, days_back=7)
     if not papers:
         print("[!] No papers found matching criteria.")
         return []
@@ -82,11 +82,11 @@ def run_local(limit: int = 3, output_json: Optional[str] = "docs/papers.json"):
 
     return processed_papers
 
-def run_ingest(limit: int = 10, auto_publish: bool = False):
-    """Weekly Ingestion: Fetches, drafts AI assessments, and saves to Supabase (status='draft' or 'published')"""
+def run_ingest(limit: int = 2, auto_publish: bool = False):
+    """Daily Rolling Ingestion: Fetches 7-day candidate pool, selects top unreviewed papers, drafts AI assessments, and saves to Supabase"""
     target_status = "published" if auto_publish else "draft"
     print("=" * 70)
-    print(f"📥 Dr. Paper: Weekly Ingestion Pipeline (Schema: {config.SUPABASE_SCHEMA} | Target: {target_status})")
+    print(f"📥 Dr. Paper: Daily Rolling Ingestion Pipeline (Schema: {config.SUPABASE_SCHEMA} | Target: {target_status} | Limit: {limit})")
     print("=" * 70)
 
     if not db.is_configured():
@@ -94,25 +94,29 @@ def run_ingest(limit: int = 10, auto_publish: bool = False):
         sys.exit(1)
 
     start_time = time.time()
-    run_id = db.start_run_log(metadata={"action": "weekly_ingest", "limit": limit, "auto_publish": auto_publish, "llm_provider": config.LLM_PROVIDER})
+    run_id = db.start_run_log(metadata={"action": "daily_rolling_ingest", "limit": limit, "auto_publish": auto_publish, "llm_provider": config.LLM_PROVIDER})
     
     try:
-        # 1. Fetch weekly candidates
-        candidates = fetch_weekly_candidate_papers(limit=limit)
-        fetched_count = len(candidates)
-        print(f"[+] Fetched {fetched_count} high-signal candidate papers.")
+        # 1. Fetch rolling 7-day candidate pool (buffered to ensure finding top unreviewed papers)
+        pool_limit = max(limit * 5, 25)
+        candidate_pool = fetch_rolling_candidate_papers(limit=pool_limit, days_back=7)
+        fetched_count = len(candidate_pool)
+        print(f"[+] Evaluated {fetched_count} high-signal candidate papers across 7-day rolling window.")
 
-        if not candidates:
-            print("[*] No new papers found.")
+        if not candidate_pool:
+            print("[*] No candidate papers found in rolling window.")
             db.complete_run_log(run_id, status="success", fetched=0, duration_ms=int((time.time() - start_time) * 1000))
             return
 
-        # 2. Check existing in database
-        arxiv_ids = [p["arxiv_id"] for p in candidates if p.get("arxiv_id")]
+        # 2. Check existing in database to deduplicate
+        arxiv_ids = [p["arxiv_id"] for p in candidate_pool if p.get("arxiv_id")]
         existing_ids = db.get_existing_arxiv_ids(arxiv_ids)
-        new_papers = [p for p in candidates if p["arxiv_id"] not in existing_ids]
-        skipped_count = len(candidates) - len(new_papers)
-        print(f"[*] Found {len(existing_ids)} already in database. {len(new_papers)} new papers to assess.")
+        new_candidates = [p for p in candidate_pool if p["arxiv_id"] not in existing_ids]
+        
+        # Take the top N unreviewed breakout papers
+        new_papers = new_candidates[:limit]
+        skipped_count = len(candidate_pool) - len(new_papers)
+        print(f"[*] Found {len(existing_ids)} already in database. Selected top {len(new_papers)} new breakout papers for review (target limit: {limit}).")
 
         # 3. Assess only new candidate papers
         llm_calls = 0

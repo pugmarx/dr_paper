@@ -1,243 +1,144 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" style="background-color: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
   <style>
-    .col-box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 6px; }
-    .card-box { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; rx: 4px; }
-    .col-header { font-size: 13px; font-weight: 700; fill: #1e293b; letter-spacing: 0.5px; }
-    .col-sub { font-size: 11px; fill: #64748b; }
-    .card-title { font-size: 12px; font-weight: 600; fill: #0f172a; }
-    .card-text { font-size: 11px; fill: #475569; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-    .card-note { font-size: 10.5px; fill: #64748b; }
-    .icon-bg { fill: #e2e8f0; rx: 4px; }
-    .icon-path { fill: #334155; }
-    .icon-stroke { stroke: #334155; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-    .arrow { stroke: #64748b; stroke-width: 1.5; fill: none; }
+    .box { fill: #ffffff; stroke: #1e293b; stroke-width: 1.5; rx: 4px; }
+    .box-sub { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; rx: 3px; }
+    .title { font-size: 17px; font-weight: 700; fill: #0f172a; }
+    .header { font-size: 13px; font-weight: 700; fill: #334155; letter-spacing: 0.5px; }
+    .subtext { font-size: 11px; fill: #64748b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .label { font-size: 11.5px; font-weight: 600; fill: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .code { font-size: 11px; fill: #0f172a; }
+    .arrow { stroke: #475569; stroke-width: 1.5; fill: none; }
   </style>
 
   <defs>
     <marker id="arrowhead" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569" />
     </marker>
-
-    <!-- Icon: Clock / Cron -->
-    <g id="icon-clock">
-      <circle cx="12" cy="12" r="8" class="icon-stroke" />
-      <polyline points="12,8 12,12 15,14" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Sources / Documents -->
-    <g id="icon-doc">
-      <path d="M6 3 H14 L18 7 V19 H6 Z" class="icon-stroke" />
-      <polyline points="14,3 14,7 18,7" class="icon-stroke" />
-      <line x1="9" y1="11" x2="15" y2="11" class="icon-stroke" />
-      <line x1="9" y1="14" x2="13" y2="14" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Brain / Extractor -->
-    <g id="icon-extractor">
-      <rect x="5" y="5" width="14" height="14" rx="2" class="icon-stroke" />
-      <circle cx="12" cy="12" r="2.5" class="icon-stroke" />
-      <line x1="12" y1="2" x2="12" y2="5" class="icon-stroke" />
-      <line x1="12" y1="19" x2="12" y2="22" class="icon-stroke" />
-      <line x1="2" y1="12" x2="5" y2="12" class="icon-stroke" />
-      <line x1="19" y1="12" x2="22" y2="12" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Pen / Writer -->
-    <g id="icon-pen">
-      <path d="M16 3 L21 8 L8 21 H3 V16 Z" class="icon-stroke" />
-      <line x1="13" y1="6" x2="18" y2="11" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Human / Reviewer -->
-    <g id="icon-human">
-      <circle cx="12" cy="7" r="4" class="icon-stroke" />
-      <path d="M4 20 C4 15 8 13 12 13 C16 13 20 15 20 20" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Smartphone / Telegram -->
-    <g id="icon-phone">
-      <rect x="6" y="2" width="12" height="20" rx="2" class="icon-stroke" />
-      <line x1="11" y1="18" x2="13" y2="18" class="icon-stroke" />
-      <line x1="9" y1="5" x2="15" y2="5" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Edge Function / Serverless Lightning -->
-    <g id="icon-function">
-      <path d="M13 2 L4 13 H11 L10 22 L20 10 H13 Z" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Database Cylinder (Supabase/Postgres) -->
-    <g id="icon-db">
-      <ellipse cx="12" cy="6" rx="8" ry="3" class="icon-stroke" />
-      <path d="M4 6 v5 c0 1.66 3.58 3 8 3 s8 -1.34 8 -3 V6" class="icon-stroke" />
-      <path d="M4 11 v5 c0 1.66 3.58 3 8 3 s8 -1.34 8 -3 V11" class="icon-stroke" />
-    </g>
-
-    <!-- Icon: Web Browser / Screen -->
-    <g id="icon-web">
-      <rect x="3" y="4" width="18" height="15" rx="2" class="icon-stroke" />
-      <line x1="3" y1="8" x2="21" y2="8" class="icon-stroke" />
-      <circle cx="6" cy="6" r="0.75" class="icon-path" />
-      <circle cx="9" cy="6" r="0.75" class="icon-path" />
-      <circle cx="12" cy="6" r="0.75" class="icon-path" />
-    </g>
   </defs>
 
-  <!-- Title & Subtitle -->
-  <text x="40" y="40" font-size="18" font-weight="700" fill="#0f172a">Dr. Paper: System Flow &amp; Component Topology</text>
-  <text x="40" y="60" font-size="12" fill="#64748b">Automated weekly ingestion, 2-stage AI summarization, 1-tap mobile review, and web reader feed</text>
+  <!-- Canvas Header -->
+  <text x="40" y="42" class="title">System Architecture: Dr. Paper</text>
+  <!-- 1. INGESTION -->
+  <rect x="40" y="90" width="245" height="460" class="box" />
+  <text x="60" y="120" class="header">1. INGESTION</text>
+  <text x="60" y="138" class="subtext">Weekly automated fetch</text>
 
-  <!-- ================= COLUMN 1: INGESTION ================= -->
-  <rect x="40" y="85" width="245" height="515" class="col-box" />
-  
-  <rect x="55" y="100" width="28" height="28" class="icon-bg" />
-  <use href="#icon-clock" x="57" y="102" />
-  <text x="92" y="114" class="col-header">1. INGESTION</text>
-  <text x="92" y="128" class="col-sub">Weekly scheduled batch</text>
+  <!-- Trigger -->
+  <rect x="60" y="155" width="205" height="50" class="box-sub" />
+  <text x="72" y="176" class="label">Scheduled Trigger</text>
+  <text x="72" y="193" class="code">GitHub Actions (Weekly cron)</text>
 
-  <!-- Card 1.1: Trigger -->
-  <rect x="55" y="145" width="215" height="60" class="card-box" />
-  <text x="68" y="167" class="card-title">GitHub Actions Runner</text>
-  <text x="68" y="184" class="card-text">cron: 0 9 * * 1</text>
-  <text x="68" y="197" class="card-note">Automated weekly batch trigger</text>
+  <!-- Sources -->
+  <rect x="60" y="218" width="205" height="120" class="box-sub" />
+  <text x="72" y="239" class="label">Candidate Sources</text>
+  <text x="72" y="260" class="code">• arXiv (cs.CL, cs.AI, cs.LG)</text>
+  <text x="72" y="280" class="code">• Hugging Face Daily Papers</text>
+  <text x="72" y="300" class="code">• AI Newsletters (RSS)</text>
+  <text x="72" y="320" class="code">• Semantic Scholar API</text>
 
-  <!-- Card 1.2: Candidate Sources -->
-  <rect x="55" y="215" width="215" height="135" class="card-box" />
-  <rect x="65" y="225" width="20" height="20" class="icon-bg" />
-  <use href="#icon-doc" x="63" y="223" transform="scale(0.85)" />
-  <text x="92" y="239" class="card-title">Candidate Sources</text>
-  <text x="68" y="262" class="card-text">• arXiv (cs.CL, cs.AI, cs.LG)</text>
-  <text x="68" y="280" class="card-text">• Hugging Face Daily Papers</text>
-  <text x="68" y="298" class="card-text">• AI Newsletter RSS Feeds</text>
-  <text x="68" y="316" class="card-text">• Semantic Scholar API</text>
-  <text x="68" y="334" class="card-note">Multi-source preprint aggregation</text>
+  <!-- Filter & Rank -->
+  <rect x="60" y="351" width="205" height="175" class="box-sub" />
+  <text x="72" y="372" class="label">Filtering &amp; Ranking</text>
+  <text x="72" y="394" class="code">• Deduplicate cross-posts</text>
+  <text x="72" y="414" class="code">• Score by community upvotes</text>
+  <text x="72" y="434" class="code">• Filter non-CS domains</text>
+  <text x="72" y="460" class="label">Output:</text>
+  <text x="72" y="480" class="code">Top 5-10 candidate papers</text>
+  <text x="72" y="498" class="code">(Title, Abstract, PDF URL)</text>
 
-  <!-- Card 1.3: Filter & Rank -->
-  <rect x="55" y="360" width="215" height="120" class="card-box" />
-  <text x="68" y="382" class="card-title">Ranking &amp; Deduplication</text>
-  <text x="68" y="402" class="card-text">• Cross-source deduplication</text>
-  <text x="68" y="420" class="card-text">• Community upvote weighting</text>
-  <text x="68" y="438" class="card-text">• Domain blacklist prune</text>
-  <text x="68" y="458" class="card-note">Emits top 5-10 candidate papers</text>
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 285 320 L 333 320" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Connector 1 -> 2 -->
-  <path d="M 285 340 L 333 340" class="arrow" marker-end="url(#arrowhead)" />
+  <!-- 2. 2-STAGE AI PROCESSING -->
+  <rect x="335" y="90" width="265" height="460" class="box" />
+  <text x="355" y="120" class="header">2. 2-STAGE AI ENGINE</text>
+  <text x="355" y="138" class="subtext">Fact extraction &amp; narrative writing</text>
 
-  <!-- ================= COLUMN 2: 2-STAGE AI ================= -->
-  <rect x="335" y="85" width="265" height="515" class="col-box" />
-  
-  <rect x="350" y="100" width="28" height="28" class="icon-bg" />
-  <use href="#icon-extractor" x="352" y="102" />
-  <text x="387" y="114" class="col-header">2. AI PIPELINE</text>
-  <text x="387" y="128" class="col-sub">Decomposed 2-stage engine</text>
+  <!-- Stage 1 Extractor -->
+  <rect x="355" y="155" width="225" height="140" class="box-sub" />
+  <text x="367" y="176" class="label">Stage 1: Fact Extractor</text>
+  <text x="367" y="194" class="subtext">Gemini 2.5 Flash</text>
+  <text x="367" y="216" class="code">• Extract core architecture</text>
+  <text x="367" y="236" class="code">• Extract baseline comparisons</text>
+  <text x="367" y="256" class="code">• Extract concrete numbers &amp; %</text>
+  <text x="367" y="276" class="code">• Output: Structured Fact JSON</text>
 
-  <!-- Card 2.1: Extractor -->
-  <rect x="350" y="145" width="235" height="145" class="card-box" />
-  <rect x="360" y="155" width="20" height="20" class="icon-bg" />
-  <use href="#icon-extractor" x="358" y="153" transform="scale(0.85)" />
-  <text x="388" y="169" class="card-title">Stage 1: Fact Extractor</text>
-  <text x="388" y="183" class="card-note">Gemini Flash</text>
-  <text x="363" y="205" class="card-text">• Architecture mechanisms</text>
-  <text x="363" y="223" class="card-text">• Baseline model comparisons</text>
-  <text x="363" y="241" class="card-text">• Concrete numeric benchmark deltas</text>
-  <text x="363" y="259" class="card-text">• Compute / hardware overhead</text>
-  <text x="363" y="277" class="card-note">Output: Structured Facts JSON</text>
+  <!-- Internal Arrow -->
+  <path d="M 467 295 L 467 318" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Internal Step Arrow -->
-  <path d="M 467 290 L 467 308" class="arrow" marker-end="url(#arrowhead)" />
+  <!-- Stage 2 Writer -->
+  <rect x="355" y="320" width="225" height="145" class="box-sub" />
+  <text x="367" y="341" class="label">Stage 2: Technical Writer</text>
+  <text x="367" y="359" class="subtext">Groq LLM / Open Weights</text>
+  <text x="367" y="381" class="code">• Writes 450-word overview</text>
+  <text x="367" y="401" class="code">• Context-specific headings</text>
+  <text x="367" y="421" class="code">• Ban on generic AI cliches</text>
+  <text x="367" y="441" class="code">• Output: The Gist + Deep Dive</text>
 
-  <!-- Card 2.2: Writer -->
-  <rect x="350" y="310" width="235" height="145" class="card-box" />
-  <rect x="360" y="320" width="20" height="20" class="icon-bg" />
-  <use href="#icon-pen" x="358" y="318" transform="scale(0.85)" />
-  <text x="388" y="334" class="card-title">Stage 2: Technical Writer</text>
-  <text x="388" y="348" class="card-note">Groq LLM / Open Weights</text>
-  <text x="363" y="370" class="card-text">• 450-word narrative essay</text>
-  <text x="363" y="388" class="card-text">• Content-specific headings</text>
-  <text x="363" y="406" class="card-text">• Plain-English "The Gist"</text>
-  <text x="363" y="424" class="card-text">• Strict anti-slop word ban</text>
-  <text x="363" y="442" class="card-note">Output: Draft Review Markdown</text>
+  <!-- Save Draft -->
+  <rect x="355" y="477" width="225" height="49" class="box-sub" />
+  <text x="367" y="497" class="label">Save Draft</text>
+  <text x="367" y="513" class="code">Writes to DB with status='draft'</text>
 
-  <!-- Card 2.3: Staging Write -->
-  <rect x="350" y="465" width="235" height="50" class="card-box" />
-  <text x="363" y="485" class="card-title">Staging Database Write</text>
-  <text x="363" y="502" class="card-text">status: 'draft' &#8594; dr_paper.papers</text>
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 600 320 L 648 320" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Connector 2 -> 3 -->
-  <path d="M 600 340 L 648 340" class="arrow" marker-end="url(#arrowhead)" />
+  <!-- 3. REVIEW & PUBLISH -->
+  <rect x="650" y="90" width="245" height="460" class="box" />
+  <text x="670" y="120" class="header">3. REVIEW &amp; PUBLISH</text>
+  <text x="670" y="138" class="subtext">1-Tap mobile approval</text>
 
-  <!-- ================= COLUMN 3: HUMAN REVIEW ================= -->
-  <rect x="650" y="85" width="245" height="515" class="col-box" />
-  
-  <rect x="665" y="100" width="28" height="28" class="icon-bg" />
-  <use href="#icon-human" x="667" y="102" />
-  <text x="702" y="114" class="col-header">3. HUMAN REVIEW</text>
-  <text x="702" y="128" class="col-sub">Mobile 1-tap moderation</text>
+  <!-- Telegram Card -->
+  <rect x="670" y="155" width="205" height="150" class="box-sub" />
+  <text x="682" y="176" class="label">Telegram Review Card</text>
+  <text x="682" y="196" class="code">• Paper title &amp; categories</text>
+  <text x="682" y="216" class="code">• "The Gist" summary</text>
+  <text x="682" y="236" class="code">• Key takeaways list</text>
+  <text x="682" y="262" class="label">Action Buttons:</text>
+  <text x="682" y="282" class="code">[Publish] [Reject]</text>
 
-  <!-- Card 3.1: Telegram Review Card -->
-  <rect x="665" y="145" width="215" height="155" class="card-box" />
-  <rect x="675" y="155" width="20" height="20" class="icon-bg" />
-  <use href="#icon-phone" x="673" y="153" transform="scale(0.85)" />
-  <text x="703" y="169" class="card-title">Telegram Bot Notification</text>
-  <text x="703" y="183" class="card-note">Mobile review card</text>
-  <text x="678" y="205" class="card-text">• Paper title &amp; arXiv category</text>
-  <text x="678" y="223" class="card-text">• "The Gist" executive summary</text>
-  <text x="678" y="241" class="card-text">• Bulleted key takeaways</text>
-  <text x="678" y="265" class="card-title">1-Tap Action Buttons:</text>
-  <text x="678" y="283" class="card-text">[Publish] [Reject]</text>
+  <!-- Internal Arrow -->
+  <path d="M 772 305 L 772 328" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Internal Step Arrow -->
-  <path d="M 772 300 L 772 318" class="arrow" marker-end="url(#arrowhead)" />
+  <!-- 1-Tap Execution -->
+  <rect x="670" y="330" width="205" height="196" class="box-sub" />
+  <text x="682" y="351" class="label">1-Tap Moderation URL</text>
+  <text x="682" y="369" class="subtext">Serverless Cloud Function</text>
+  <text x="682" y="393" class="code">• User taps [Publish] on phone</text>
+  <text x="682" y="413" class="code">• Cloud function updates DB:</text>
+  <text x="692" y="433" class="code">status: 'draft' &#8594; 'published'</text>
+  <text x="682" y="455" class="code">• Sets published timestamp</text>
+  <text x="682" y="475" class="code">• Instant mobile confirmation</text>
+  <text x="682" y="503" class="subtext">Zero login screens or forms</text>
 
-  <!-- Card 3.2: Edge Function -->
-  <rect x="665" y="320" width="215" height="155" class="card-box" />
-  <rect x="675" y="330" width="20" height="20" class="icon-bg" />
-  <use href="#icon-function" x="673" y="328" transform="scale(0.85)" />
-  <text x="703" y="344" class="card-title">Supabase Edge Function</text>
-  <text x="703" y="358" class="card-note">Serverless Deno Runtime</text>
-  <text x="678" y="380" class="card-text">• Curator taps [Publish] on mobile</text>
-  <text x="678" y="398" class="card-text">• Validates action request</text>
-  <text x="678" y="416" class="card-text">• SQL UPDATE status:</text>
-  <text x="688" y="434" class="card-text">'draft' &#8594; 'published'</text>
-  <text x="678" y="456" class="card-note">Instant mobile confirmation screen</text>
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 895 320 L 943 320" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Connector 3 -> 4 -->
-  <path d="M 895 340 L 943 340" class="arrow" marker-end="url(#arrowhead)" />
+  <!-- 4. WEB READER -->
+  <rect x="945" y="90" width="215" height="460" class="box" />
+  <text x="965" y="120" class="header">4. WEB READER</text>
+  <text x="965" y="138" class="subtext">Live feed &amp; reading state</text>
 
-  <!-- ================= COLUMN 4: SERVING & READER ================= -->
-  <rect x="945" y="85" width="215" height="515" class="col-box" />
-  
-  <rect x="960" y="100" width="28" height="28" class="icon-bg" />
-  <use href="#icon-web" x="962" y="102" />
-  <text x="997" y="114" class="col-header">4. WEB READER</text>
-  <text x="997" y="128" class="col-sub">Database &amp; client app</text>
+  <!-- Database -->
+  <rect x="965" y="155" width="175" height="130" class="box-sub" />
+  <text x="977" y="176" class="label">PostgreSQL (Supabase)</text>
+  <text x="977" y="196" class="code">• papers table</text>
+  <text x="977" y="216" class="code">• user_interactions</text>
+  <text x="977" y="242" class="label">Read Rule:</text>
+  <text x="977" y="260" class="code">Only serves 'published'</text>
 
-  <!-- Card 4.1: Database -->
-  <rect x="960" y="145" width="185" height="145" class="card-box" />
-  <rect x="970" y="155" width="20" height="20" class="icon-bg" />
-  <use href="#icon-db" x="968" y="153" transform="scale(0.85)" />
-  <text x="998" y="169" class="card-title">PostgreSQL (Supabase)</text>
-  <text x="998" y="183" class="card-note">Schema: dr_paper</text>
-  <text x="973" y="205" class="card-text">• papers table</text>
-  <text x="973" y="223" class="card-text">• user_interactions</text>
-  <text x="973" y="247" class="card-title">Row-Level Security:</text>
-  <text x="973" y="265" class="card-text">SELECT status='published'</text>
-  <text x="973" y="280" class="card-note">Drafts remain private</text>
+  <!-- Internal Arrow -->
+  <path d="M 1052 285 L 1052 308" class="arrow" marker-end="url(#arrowhead)" />
 
-  <!-- Internal Step Arrow -->
-  <path d="M 1052 290 L 1052 308" class="arrow" marker-end="url(#arrowhead)" />
-
-  <!-- Card 4.2: Web App -->
-  <rect x="960" y="310" width="185" height="190" class="card-box" />
-  <rect x="970" y="320" width="20" height="20" class="icon-bg" />
-  <use href="#icon-web" x="968" y="318" transform="scale(0.85)" />
-  <text x="998" y="334" class="card-title">Web Reader UI</text>
-  <text x="998" y="348" class="card-note">Hugging Face Static Space</text>
-  <text x="973" y="370" class="card-text">• Unread Queue feed</text>
-  <text x="973" y="388" class="card-text">• [Mark Read] / [Save]</text>
-  <text x="973" y="406" class="card-text">• Mobile swipe to dismiss</text>
-  <text x="973" y="424" class="card-text">• Topic &amp; keyword search</text>
-  <text x="973" y="442" class="card-text">• Offline-first cache</text>
-  <text x="973" y="460" class="card-text">• Cross-device sync</text>
-  <text x="973" y="482" class="card-note">Direct PostgREST integration</text>
+  <!-- Frontend UI -->
+  <rect x="965" y="310" width="175" height="216" class="box-sub" />
+  <text x="977" y="331" class="label">Web Client (Static)</text>
+  <text x="977" y="349" class="subtext">Hosted on Hugging Face</text>
+  <text x="977" y="373" class="code">• Unread Queue feed</text>
+  <text x="977" y="393" class="code">• [Mark Read] / [Save]</text>
+  <text x="977" y="413" class="code">• Mobile swipe to dismiss</text>
+  <text x="977" y="433" class="code">• Search &amp; topic filter</text>
+  <text x="977" y="453" class="code">• Offline-first caching</text>
+  <text x="977" y="473" class="code">• Cross-device sync</text>
+  <text x="977" y="501" class="subtext">Direct API connection</text>
 </svg>

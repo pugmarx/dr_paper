@@ -1,15 +1,15 @@
-name: Weekly Paper Ingestion & AI Curation
+name: Daily Paper Ingestion & AI Curation
 
 on:
   schedule:
-    # Runs every Monday at 09:00 UTC (02:00 AM PT / 05:00 AM ET)
-    - cron: '0 9 * * 1'
+    # Runs every day at 08:00 UTC (01:00 AM PT / 04:00 AM ET)
+    - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
       limit:
-        description: 'Number of candidate papers to ingest'
+        description: 'Number of candidate papers to ingest (default: 2)'
         required: false
-        default: '10'
+        default: '2'
         type: string
       auto_publish:
         description: 'Publish directly (status=published) instead of draft staging'
@@ -31,7 +31,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: "weekly-curation"
+  group: "daily-curation"
   cancel-in-progress: false
 
 jobs:
@@ -80,7 +80,7 @@ jobs:
 
           LIMIT="${{ inputs.limit }}"
           if [ -z "$LIMIT" ]; then
-            LIMIT="10"
+            LIMIT="2"
           fi
           
           CMD="python src/pipeline.py --ingest --limit $LIMIT"
@@ -94,7 +94,8 @@ jobs:
       - name: Workflow Run Summary
         if: always()
         run: |
-          echo "### 🔬 Dr. Paper Weekly Ingestion Run" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔬 Dr. Paper Daily Ingestion Run" >> $GITHUB_STEP_SUMMARY
           echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+

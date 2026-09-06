@@ -306,9 +306,10 @@ def deduplicate_papers(papers: List[Dict]) -> List[Dict]:
 
     return unique
 
-def fetch_weekly_candidate_papers(limit: int = 10, days_back: int = 7) -> List[Dict]:
+def fetch_rolling_candidate_papers(limit: int = 15, days_back: int = 7) -> List[Dict]:
     """
-    Main curation fetcher: Ingests from newsletters, Hugging Face, and arXiv for the weekly edition.
+    Main curation fetcher: Ingests from newsletters, Hugging Face, and arXiv across a rolling 7-day window.
+    Allows crowdsourced upvotes and newsletter mentions to mature for peak ranking signal.
     """
     all_papers = []
 
@@ -333,13 +334,16 @@ def fetch_weekly_candidate_papers(limit: int = 10, days_back: int = 7) -> List[D
     scored_papers.sort(key=lambda x: x["score"], reverse=True)
     return scored_papers[:limit]
 
-# Backwards compatible alias
+# Backwards compatible aliases
+def fetch_weekly_candidate_papers(limit: int = 10, days_back: int = 7) -> List[Dict]:
+    return fetch_rolling_candidate_papers(limit=limit, days_back=days_back)
+
 def fetch_and_rank_papers(include_arxiv: bool = True, include_hf: bool = True, min_score: Optional[float] = None, limit: Optional[int] = None) -> List[Dict]:
-    return fetch_weekly_candidate_papers(limit=limit or 10)
+    return fetch_rolling_candidate_papers(limit=limit or 10)
 
 if __name__ == "__main__":
-    print("[*] Fetching weekly candidate papers...")
-    top_candidates = fetch_weekly_candidate_papers(limit=5)
+    print("[*] Fetching candidate papers across 7-day rolling window...")
+    top_candidates = fetch_rolling_candidate_papers(limit=5)
     print(f"\n[+] Selected {len(top_candidates)} top candidate papers:")
     for idx, p in enumerate(top_candidates, 1):
         print(f"\n{idx}. [{p['score']:>4.1f}] {p['title']}")

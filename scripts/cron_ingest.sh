@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Dr. Paper: Scheduled Weekly Ingestion Script
+# Dr. Paper: Scheduled Daily Ingestion Script
 # Can be run via crontab or executed directly.
 # ==============================================================================
 
@@ -31,8 +31,8 @@ else
     exit 1
 fi
 
-# Run ingestion pipeline (limit 10 candidates by default)
-LIMIT="${1:-10}"
+# Run ingestion pipeline (limit 2 candidates per daily run by default)
+LIMIT="${1:-2}"
 echo "[*] Executing: $PYTHON_BIN src/pipeline.py --ingest --limit $LIMIT" | tee -a "$LOG_FILE"
 
 if "$PYTHON_BIN" src/pipeline.py --ingest --limit "$LIMIT" 2>&1 | tee -a "$LOG_FILE"; then

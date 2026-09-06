@@ -250,28 +250,38 @@ def listen_loop():
             time.sleep(3)
 
 def send_test_card():
-    """Send a minimalist test card to verify Telegram bot setup"""
+    """Send a test card for a real paper in Supabase to verify bot and serverless moderation"""
     if not is_telegram_configured():
         print("[ERROR] Please configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env first.")
         return False
 
-    test_paper = {
-        "arxiv_id": "2412.19437",
-        "title": "DeepSeek-V3 Technical Report",
-        "score": 18.5,
-        "curated_source": "Hugging Face Daily Papers",
-        "published_edition": "Edition 2026-W36",
-        "structured_analysis": {
-            "plain_english_gist": "DeepSeek-V3 introduces Multi-Head Latent Attention (MLA) and DeepSeekMoE to achieve frontier-grade reasoning performance at one-fifth the training and inference cost of traditional dense models.",
-            "key_takeaways": [
-                "Compresses KV cache footprint by 93.3% using low-rank joint compression.",
-                "Multi-token prediction objective accelerates inference throughput by 1.8x.",
-                "Trained on 14.8T tokens for under $6M total compute budget."
-            ]
-        }
-    }
+    # Try to pick a real paper from Supabase
+    test_paper = None
+    if db.is_configured():
+        try:
+            resp = requests.get(f"{db.rest_url}/papers?select=*&limit=1", headers=db.headers, timeout=5)
+            if resp.status_code == 200 and resp.json():
+                test_paper = resp.json()[0]
+        except Exception:
+            pass
 
-    print(f"[*] Sending test card to Telegram chat {config.TELEGRAM_CHAT_ID}...")
+    if not test_paper:
+        test_paper = {
+            "arxiv_id": "2609.03153",
+            "title": "VeriPhy: Agentic Physical Reasoning for World Model Evaluation and Refinement",
+            "score": 14.5,
+            "curated_source": "Hugging Face Daily Papers",
+            "published_edition": "Edition 2026-W36",
+            "structured_analysis": {
+                "plain_english_gist": "VeriPhy introduces deterministic verification steps for physical reasoning in multimodal world models.",
+                "key_takeaways": [
+                    "Eliminates hallucinated physics by 64% in simulated benchmarks.",
+                    "Integrates with existing vision-language architectures without retraining."
+                ]
+            }
+        }
+
+    print(f"[*] Sending test card for '{test_paper.get('title')}' (arXiv: {test_paper.get('arxiv_id')}) to Telegram chat {config.TELEGRAM_CHAT_ID}...")
     success = send_paper_review_card(test_paper)
     if success:
         print("[+] Test card sent successfully. Check your Telegram app.")

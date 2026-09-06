@@ -1,0 +1,81 @@
+name: Weekly Paper Ingestion & AI Curation
+
+on:
+  schedule:
+    # Runs every Monday at 09:00 UTC (02:00 AM PT / 05:00 AM ET)
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Number of candidate papers to ingest'
+        required: false
+        default: '10'
+        type: string
+      auto_publish:
+        description: 'Publish directly (status=published) instead of draft staging'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write # Needed for keepalive-workflow to prevent 60-day scheduled run disable
+
+concurrency:
+  group: "weekly-curation"
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Ingest and Curate Research Papers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Keepalive Workflow (Prevent 60-day scheduled run disable)
+        uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          time_elapsed: 45
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Dr. Paper Ingestion Pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SCHEMA: ${{ secrets.SUPABASE_SCHEMA || 'dr_paper' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          GROQ_MODEL: ${{ secrets.GROQ_MODEL || 'openai/gpt-oss-120b' }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '10' }}"
+          AUTO_PUB="${{ github.event.inputs.auto_publish }}"
+          
+          CMD="python src/pipeline.py --ingest --limit $LIMIT"
+          if [ "$AUTO_PUB" = "true" ]; then
+            CMD="$CMD --auto-publish"
+          fi
+          
+          echo "Executing: $CMD"
+          $CMD
+
+      - name: Workflow Run Summary
+        if: always()
+        run: |
+          echo "### 🔬 Dr. Paper Weekly Ingestion Run" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

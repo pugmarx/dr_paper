@@ -82,10 +82,11 @@ def run_local(limit: int = 3, output_json: Optional[str] = "docs/papers.json"):
 
     return processed_papers
 
-def run_ingest(limit: int = 10):
-    """Weekly Ingestion: Fetches, drafts AI assessments, and saves to Supabase with status='draft'"""
+def run_ingest(limit: int = 10, auto_publish: bool = False):
+    """Weekly Ingestion: Fetches, drafts AI assessments, and saves to Supabase (status='draft' or 'published')"""
+    target_status = "published" if auto_publish else "draft"
     print("=" * 70)
-    print(f"📥 Dr. Paper: Weekly Ingestion Pipeline (Schema: {config.SUPABASE_SCHEMA})")
+    print(f"📥 Dr. Paper: Weekly Ingestion Pipeline (Schema: {config.SUPABASE_SCHEMA} | Target: {target_status})")
     print("=" * 70)
 
     if not db.is_configured():
@@ -93,7 +94,7 @@ def run_ingest(limit: int = 10):
         sys.exit(1)
 
     start_time = time.time()
-    run_id = db.start_run_log(metadata={"action": "weekly_ingest", "limit": limit, "llm_provider": config.LLM_PROVIDER})
+    run_id = db.start_run_log(metadata={"action": "weekly_ingest", "limit": limit, "auto_publish": auto_publish, "llm_provider": config.LLM_PROVIDER})
     
     try:
         # 1. Fetch weekly candidates
@@ -111,7 +112,7 @@ def run_ingest(limit: int = 10):
         existing_ids = db.get_existing_arxiv_ids(arxiv_ids)
         new_papers = [p for p in candidates if p["arxiv_id"] not in existing_ids]
         skipped_count = len(candidates) - len(new_papers)
-        print(f"[*] Found {len(existing_ids)} already in database. {len(new_papers)} new drafts to generate.")
+        print(f"[*] Found {len(existing_ids)} already in database. {len(new_papers)} new papers to assess.")
 
         # 3. Assess only new candidate papers
         llm_calls = 0
@@ -119,18 +120,19 @@ def run_ingest(limit: int = 10):
             print(f"   [{idx}/{len(new_papers)}] Assessing: {paper['title'][:55]}...")
             analysis = assess_paper(paper)
             paper["structured_analysis"] = analysis
-            paper["status"] = "draft"  # Staged for review
+            paper["status"] = target_status
             llm_calls += 1
             time.sleep(1.0)
 
-        # 4. Upsert drafts to Supabase
+        # 4. Upsert papers to Supabase
         if new_papers:
-            print(f"\n[*] Staging {len(new_papers)} drafts in Supabase '{config.SUPABASE_SCHEMA}.papers'...")
-            res = db.batch_upsert_papers(new_papers, default_status="draft")
+            print(f"\n[*] Saving {len(new_papers)} papers to Supabase '{config.SUPABASE_SCHEMA}.papers' (status='{target_status}')...")
+            res = db.batch_upsert_papers(new_papers, default_status=target_status)
             if res.get("success"):
-                print(f"[SUCCESS] Staged {res.get('count')} candidate drafts!")
+                print(f"[SUCCESS] Saved {res.get('count')} papers!")
             else:
-                print(f"[ERROR] Failed to stage drafts: {res.get('error')}")
+                print(f"[ERROR] Failed to save papers: {res.get('error')}")
+                raise RuntimeError(f"Database upsert failed: {res.get('error')}")
 
         duration_ms = int((time.time() - start_time) * 1000)
         db.complete_run_log(
@@ -144,7 +146,10 @@ def run_ingest(limit: int = 10):
         )
 
         print("\n" + "=" * 70)
-        print(f"✅ Ingestion complete. Run 'python src/pipeline.py --review' to moderate drafts.")
+        if auto_publish:
+            print(f"✅ Ingestion complete. {len(new_papers)} new papers published to Dr. Paper live.")
+        else:
+            print(f"✅ Ingestion complete. Run 'python src/pipeline.py --review' to moderate drafts.")
         print("=" * 70)
 
     except Exception as e:
@@ -263,6 +268,7 @@ def main():
     parser.add_argument("--local", action="store_true", help="Run local testing and output to docs/papers.json")
     parser.add_argument("--ingest", action="store_true", help="Fetch and draft top weekly candidates to Supabase (status='draft')")
     parser.add_argument("--sync", action="store_true", help="Alias for --ingest")
+    parser.add_argument("--auto-publish", action="store_true", help="Publish directly to live site (status='published') during ingestion")
     parser.add_argument("--review", action="store_true", help="Launch interactive CLI review to moderate and publish drafts")
     parser.add_argument("--publish", type=str, metavar="ARXIV_ID", help="Publish a specific paper by arXiv ID")
     parser.add_argument("--export-published", action="store_true", help="Export published papers to docs/papers.json")
@@ -281,7 +287,7 @@ def main():
     elif args.local:
         run_local(limit=args.limit)
     elif args.ingest or args.sync:
-        run_ingest(limit=args.limit)
+        run_ingest(limit=args.limit, auto_publish=args.auto_publish)
     elif args.review:
         run_review()
     elif args.publish:

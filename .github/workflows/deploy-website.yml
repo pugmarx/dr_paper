@@ -1,15 +1,12 @@
-name: Generate and Deploy Website
+name: Deploy Website to GitHub Pages
 
 on:
-  schedule:
-    - cron: '0 6 * * *'
-  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - 'src/notion_to_website.py'
       - 'docs/**'
-      - '.github/workflows/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,58 +18,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
-      
-      - name: Generate papers data from Notion
-        env:
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
-        run: |
-          echo "[INFO] Fetching papers from Notion database..."
-          python src/notion_to_website.py
-          
-          if [ -f "docs/papers.json" ]; then
-            echo "[SUCCESS] papers.json generated successfully"
-            echo "[INFO] File size: $(du -h docs/papers.json | cut -f1)"
-            echo "[INFO] First few lines of generated file:"
-            head -20 docs/papers.json
-          else
-            echo "[ERROR] papers.json was not generated"
-            exit 1
-          fi
-      
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: docs
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    permissions:
-      pages: write
-      id-token: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

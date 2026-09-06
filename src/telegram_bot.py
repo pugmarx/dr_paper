@@ -2,7 +2,7 @@
 """
 Dr. Paper: Telegram Editorial Review Bot
 Sends candidate research cards to Telegram with 1-click [Publish], [Feature], [Reject] inline buttons.
-Processes moderation actions and updates Supabase live.
+Minimalist formatting with zero emojis and quiet typography.
 """
 
 import html
@@ -38,7 +38,7 @@ def send_telegram_message(text: str, reply_markup: Optional[Dict] = None, chat_i
         "chat_id": target_chat,
         "text": text,
         "parse_mode": "HTML",
-        "disable_web_page_preview": False
+        "disable_web_page_preview": True
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
@@ -55,7 +55,7 @@ def send_telegram_message(text: str, reply_markup: Optional[Dict] = None, chat_i
         return None
 
 def format_paper_card_html(paper: Dict) -> str:
-    """Format a research paper draft into clean Telegram HTML"""
+    """Format a research paper draft into clean, quiet Telegram HTML"""
     title = html.escape(paper.get("title", "Untitled Paper"))
     arxiv_id = paper.get("arxiv_id", "")
     score = paper.get("score", 0.0)
@@ -67,23 +67,23 @@ def format_paper_card_html(paper: Dict) -> str:
     takeaways = analysis.get("key_takeaways", [])
 
     arxiv_url = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else ""
-    title_link = f'<a href="{arxiv_url}">{title}</a>' if arxiv_url else f'<b>{title}</b>'
+    title_link = f'<a href="{arxiv_url}"><b>{title}</b></a>' if arxiv_url else f'<b>{title}</b>'
 
     lines = [
-        f"🔬 <b>{title_link}</b>",
-        f"📊 <b>Score:</b> {score:.1f} | <b>Source:</b> {source} | <b>Edition:</b> {edition}",
+        title_link,
+        f"<i>Score: {score:.1f} · {source} · {edition}</i>",
         ""
     ]
 
     if gist:
         lines.extend([
-            "💡 <b>The Gist</b>",
-            f"<blockquote>{html.escape(gist)}</blockquote>",
+            "<b>The Gist</b>",
+            html.escape(gist),
             ""
         ])
 
     if takeaways:
-        lines.append("📌 <b>Key Takeaways</b>")
+        lines.append("<b>Key Takeaways</b>")
         for t in takeaways[:4]:
             lines.append(f"• {html.escape(t)}")
         lines.append("")
@@ -91,17 +91,17 @@ def format_paper_card_html(paper: Dict) -> str:
     return "\n".join(lines).strip()
 
 def build_review_inline_keyboard(arxiv_id: str) -> Dict:
-    """Build interactive inline buttons for Telegram card"""
+    """Build minimalist interactive inline buttons without emojis"""
     arxiv_url = f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else "https://arxiv.org"
     return {
         "inline_keyboard": [
             [
-                {"text": "✅ Publish", "callback_data": f"pub:{arxiv_id}"},
-                {"text": "⭐ Feature", "callback_data": f"feat:{arxiv_id}"},
-                {"text": "❌ Reject", "callback_data": f"rej:{arxiv_id}"}
+                {"text": "Publish", "callback_data": f"pub:{arxiv_id}"},
+                {"text": "Feature", "callback_data": f"feat:{arxiv_id}"},
+                {"text": "Reject", "callback_data": f"rej:{arxiv_id}"}
             ],
             [
-                {"text": "📖 View on arXiv", "url": arxiv_url}
+                {"text": "arXiv", "url": arxiv_url}
             ]
         ]
     }
@@ -127,7 +127,7 @@ def notify_new_drafts(papers: List[Dict], chat_id: Optional[str] = None) -> int:
     return sent_count
 
 def answer_callback_query(callback_query_id: str, text: str):
-    """Acknowledge Telegram callback query to dismiss loading indicator"""
+    """Acknowledge Telegram callback query"""
     url = f"{TELEGRAM_API_BASE}{config.TELEGRAM_BOT_TOKEN}/answerCallbackQuery"
     try:
         requests.post(url, json={"callback_query_id": callback_query_id, "text": text}, timeout=5)
@@ -135,13 +135,14 @@ def answer_callback_query(callback_query_id: str, text: str):
         print(f"[WARN] Failed to answer callback query: {e}")
 
 def edit_message_text(chat_id: int, message_id: int, text: str, reply_markup: Optional[Dict] = None):
-    """Edit message text and buttons after action is taken"""
+    """Edit message text and buttons after moderation action is taken"""
     url = f"{TELEGRAM_API_BASE}{config.TELEGRAM_BOT_TOKEN}/editMessageText"
     payload = {
         "chat_id": chat_id,
         "message_id": message_id,
         "text": text,
-        "parse_mode": "HTML"
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
     }
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
@@ -168,40 +169,39 @@ def handle_callback_action(callback: Dict) -> bool:
     if action == "pub":
         success = db.update_paper_editorial(arxiv_id, status="published")
         if success:
-            answer_callback_query(callback_id, f"✅ Published paper {arxiv_id}!")
-            status_banner = f"\n\n<b>[ STATUS: ✅ Published to Dr. Paper ]</b>"
-            # Keep read arxiv button only
-            new_kb = {"inline_keyboard": [[{"text": "📖 View on arXiv", "url": f"https://arxiv.org/abs/{arxiv_id}"}]]}
+            answer_callback_query(callback_id, f"Published {arxiv_id}")
+            status_banner = f"\n\n<b>[Published]</b>"
+            new_kb = {"inline_keyboard": [[{"text": "arXiv", "url": f"https://arxiv.org/abs/{arxiv_id}"}]]}
             edit_message_text(chat_id, message_id, html.escape(original_text) + status_banner, reply_markup=new_kb)
-            print(f"[TELEGRAM] Published {arxiv_id} via bot.")
+            print(f"[TELEGRAM] Published {arxiv_id}")
             return True
         else:
-            answer_callback_query(callback_id, f"❌ Failed to publish {arxiv_id} in database.")
+            answer_callback_query(callback_id, f"Error publishing {arxiv_id}")
             return False
 
     elif action == "feat":
         success = db.update_paper_editorial(arxiv_id, status="published", is_featured=True)
         if success:
-            answer_callback_query(callback_id, f"⭐ Featured & Published {arxiv_id}!")
-            status_banner = f"\n\n<b>[ STATUS: ⭐ Featured on Dr. Paper ]</b>"
-            new_kb = {"inline_keyboard": [[{"text": "📖 View on arXiv", "url": f"https://arxiv.org/abs/{arxiv_id}"}]]}
+            answer_callback_query(callback_id, f"Featured {arxiv_id}")
+            status_banner = f"\n\n<b>[Featured & Published]</b>"
+            new_kb = {"inline_keyboard": [[{"text": "arXiv", "url": f"https://arxiv.org/abs/{arxiv_id}"}]]}
             edit_message_text(chat_id, message_id, html.escape(original_text) + status_banner, reply_markup=new_kb)
-            print(f"[TELEGRAM] Featured {arxiv_id} via bot.")
+            print(f"[TELEGRAM] Featured {arxiv_id}")
             return True
         else:
-            answer_callback_query(callback_id, f"❌ Failed to feature {arxiv_id}.")
+            answer_callback_query(callback_id, f"Error featuring {arxiv_id}")
             return False
 
     elif action == "rej":
         success = db.update_paper_editorial(arxiv_id, status="rejected")
         if success:
-            answer_callback_query(callback_id, f"❌ Rejected {arxiv_id}.")
-            status_banner = f"\n\n<b>[ STATUS: ❌ Rejected ]</b>"
+            answer_callback_query(callback_id, f"Rejected {arxiv_id}")
+            status_banner = f"\n\n<b>[Rejected]</b>"
             edit_message_text(chat_id, message_id, html.escape(original_text) + status_banner, reply_markup={"inline_keyboard": []})
-            print(f"[TELEGRAM] Rejected {arxiv_id} via bot.")
+            print(f"[TELEGRAM] Rejected {arxiv_id}")
             return True
         else:
-            answer_callback_query(callback_id, f"❌ Failed to reject {arxiv_id}.")
+            answer_callback_query(callback_id, f"Error rejecting {arxiv_id}")
             return False
 
     return False
@@ -213,9 +213,9 @@ def listen_loop():
         sys.exit(1)
 
     print("=" * 70)
-    print("🤖 Dr. Paper: Telegram Moderation Listener Active")
-    print("   Waiting for inline button actions [Publish / Feature / Reject]...")
-    print("   Press Ctrl+C to stop.")
+    print("Dr. Paper: Telegram Review Listener Active")
+    print("Waiting for moderation actions [Publish / Feature / Reject]...")
+    print("Press Ctrl+C to stop.")
     print("=" * 70)
 
     offset = None
@@ -236,14 +236,14 @@ def listen_loop():
                         handle_callback_action(update["callback_query"])
             time.sleep(0.5)
         except KeyboardInterrupt:
-            print("\n[!] Telegram listener stopped.")
+            print("\n[!] Listener stopped.")
             break
         except Exception as e:
             print(f"[WARN] Error in polling loop: {e}")
             time.sleep(3)
 
 def send_test_card():
-    """Send a test card to verify Telegram bot setup"""
+    """Send a minimalist test card to verify Telegram bot setup"""
     if not is_telegram_configured():
         print("[ERROR] Please configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env first.")
         return False
@@ -255,7 +255,7 @@ def send_test_card():
         "curated_source": "Hugging Face Daily Papers",
         "published_edition": "Edition 2026-W36",
         "structured_analysis": {
-            "plain_english_gist": "DeepSeek-V3 introduces Multi-Head Latent Attention (MLA) and DeepSeekMoE to achieve frontier-grade reasoning performance at 1/5th the training and inference cost of traditional dense models.",
+            "plain_english_gist": "DeepSeek-V3 introduces Multi-Head Latent Attention (MLA) and DeepSeekMoE to achieve frontier-grade reasoning performance at one-fifth the training and inference cost of traditional dense models.",
             "key_takeaways": [
                 "Compresses KV cache footprint by 93.3% using low-rank joint compression.",
                 "Multi-token prediction objective accelerates inference throughput by 1.8x.",
@@ -264,12 +264,12 @@ def send_test_card():
         }
     }
 
-    print(f"[*] Sending test review card to Telegram chat {config.TELEGRAM_CHAT_ID}...")
+    print(f"[*] Sending test card to Telegram chat {config.TELEGRAM_CHAT_ID}...")
     success = send_paper_review_card(test_paper)
     if success:
-        print("✅ Test card sent successfully! Check your Telegram app.")
+        print("[+] Test card sent successfully. Check your Telegram app.")
     else:
-        print("❌ Failed to send test card. Please check your token and chat ID.")
+        print("[!] Failed to send test card. Please check your token and chat ID.")
     return success
 
 def notify_all_staged_drafts():
@@ -283,9 +283,9 @@ def notify_all_staged_drafts():
         print("[+] No pending drafts in database.")
         return
 
-    print(f"[*] Sending {len(drafts)} staged draft review cards to Telegram...")
+    print(f"[*] Sending {len(drafts)} draft review cards to Telegram...")
     sent = notify_new_drafts(drafts)
-    print(f"✅ Sent {sent}/{len(drafts)} cards to Telegram.")
+    print(f"[+] Sent {sent}/{len(drafts)} cards to Telegram.")
 
 def main():
     if len(sys.argv) > 1:

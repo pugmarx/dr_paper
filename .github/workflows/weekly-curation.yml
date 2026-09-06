@@ -18,7 +18,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write # Needed for keepalive-workflow to prevent 60-day scheduled run disable
+  contents: write
 
 concurrency:
   group: "weekly-curation"
@@ -35,6 +35,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Keepalive Workflow (Prevent 60-day scheduled run disable)
+        if: github.event_name == 'schedule'
         uses: gautamkrishnar/keepalive-workflow@v2
         with:
           time_elapsed: 45
@@ -54,18 +55,17 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_SCHEMA: ${{ secrets.SUPABASE_SCHEMA || 'dr_paper' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
-          GROQ_MODEL: ${{ secrets.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           PYTHONUNBUFFERED: "1"
         run: |
-          LIMIT="${{ github.event.inputs.limit || '10' }}"
-          AUTO_PUB="${{ github.event.inputs.auto_publish }}"
+          LIMIT="${{ inputs.limit }}"
+          if [ -z "$LIMIT" ]; then
+            LIMIT="10"
+          fi
           
           CMD="python src/pipeline.py --ingest --limit $LIMIT"
-          if [ "$AUTO_PUB" = "true" ]; then
+          if [ "${{ inputs.auto_publish }}" = "true" ]; then
             CMD="$CMD --auto-publish"
           fi
           

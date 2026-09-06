@@ -27,4 +27,8 @@ class Config:
     MAX_PAPERS_PER_RUN = int(os.getenv("MAX_PAPERS_PER_RUN", "10"))
     MIN_SCORE_THRESHOLD = float(os.getenv("MIN_SCORE_THRESHOLD", "2.0"))
 
+    # Telegram Bot Settings
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
 config = Config()

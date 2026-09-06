@@ -134,6 +134,17 @@ def run_ingest(limit: int = 10, auto_publish: bool = False):
                 print(f"[ERROR] Failed to save papers: {res.get('error')}")
                 raise RuntimeError(f"Database upsert failed: {res.get('error')}")
 
+            # 5. Send Telegram review cards for new drafts
+            if not auto_publish:
+                try:
+                    from telegram_bot import is_telegram_configured, notify_new_drafts
+                    if is_telegram_configured():
+                        print(f"📱 Sending {len(new_papers)} draft review cards to Telegram...")
+                        sent = notify_new_drafts(new_papers)
+                        print(f"✅ Sent {sent}/{len(new_papers)} review cards to Telegram.")
+                except Exception as tg_err:
+                    print(f"[WARN] Could not send Telegram alert: {tg_err}")
+
         duration_ms = int((time.time() - start_time) * 1000)
         db.complete_run_log(
             run_id=run_id,

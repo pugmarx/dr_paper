@@ -3,7 +3,7 @@ name: Daily Paper Ingestion & AI Curation
 on:
   schedule:
     # Runs every day at 08:00 UTC (01:00 AM PT / 04:00 AM ET)
-    - cron: '0 8 * * *'
+    - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
       limit:

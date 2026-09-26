@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dr. Paper — Weekly AI Research</title>
-    <meta name="description" content="Curated weekly research papers exploring high-signal breakthroughs in artificial intelligence, systems, and deep learning.">
+    <title>Dr. Paper — Curated Papers on AI</title>
+    <meta name="description" content="Curated research papers exploring high-signal breakthroughs in artificial intelligence, systems, and deep learning.">
     <link rel="stylesheet" href="styles.css">
     
     <!-- Google Fonts: Newsreader (Editorial Serif) + Inter (Clean Sans) -->
@@ -22,7 +22,7 @@
                     <img src="https://raw.githubusercontent.com/pugmarx/dr_paper/main/docs/images/dr-paper.png" alt="Dr. Paper" class="masthead-logo" onerror="this.style.display='none'">
                     <div>
                         <h1 class="journal-title">Dr. Paper</h1>
-                        <p class="journal-subtitle">Weekly AI Research</p>
+                        <p class="journal-subtitle">Curated Papers on AI</p>
                     </div>
                 </div>
                 
@@ -80,6 +80,19 @@
 
             <div id="papersGrid" class="dispatches-flow">
                 <!-- Dynamic Article Papers will be injected here -->
+            </div>
+
+            <!-- Scroll Sentinel & Incremental Loader -->
+            <div id="scrollSentinel" class="scroll-sentinel" style="display: none;">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                <span>Loading more dispatches...</span>
+            </div>
+
+            <!-- End of Dispatches Marker -->
+            <div id="endOfFeed" class="end-of-feed" style="display: none;">
+                <div class="end-rule"></div>
+                <span class="end-text">End of Research Dispatches</span>
+                <div class="end-rule"></div>
             </div>
 
             <!-- All Caught Up State -->
@@ -217,8 +230,9 @@
                         <i class="fas fa-check"></i>
                         <span class="action-text">Done</span>
                     </button>
-                    <button class="share-icon-btn" type="button" title="Share Paper">
-                        <i class="fas fa-share-alt"></i>
+                    <button class="card-action-btn btn-share" type="button" title="Copy direct permalink to clipboard">
+                        <i class="fas fa-link"></i>
+                        <span class="action-text">Share</span>
                     </button>
                 </div>
             </footer>

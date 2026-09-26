@@ -46,6 +46,11 @@ class PapersJournal {
         this.searchTerm = '';
         this.selectedTopic = 'all';
 
+        // Lazy Loading & Infinite Scroll
+        this.pageSize = 8;
+        this.renderedCount = 0;
+        this.infiniteScrollObserver = null;
+
         this.init();
     }
     
@@ -53,6 +58,7 @@ class PapersJournal {
         this.setupTheme();
         this.setupEventListeners();
         this.setupQueueTabs();
+        this.setupInfiniteScroll();
         this.loadDispatches();
         this.syncRemoteInteractions();
     }
@@ -127,6 +133,29 @@ class PapersJournal {
             });
         });
         this.updateTabUI();
+    }
+
+    setupInfiniteScroll() {
+        const sentinel = document.getElementById('scrollSentinel');
+        if (!sentinel || !window.IntersectionObserver) return;
+
+        if (this.infiniteScrollObserver) {
+            this.infiniteScrollObserver.disconnect();
+        }
+
+        this.infiniteScrollObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && this.renderedCount < this.filteredPapers.length) {
+                    this.renderNextBatch();
+                }
+            });
+        }, {
+            root: null,
+            rootMargin: '350px',
+            threshold: 0.05
+        });
+
+        this.infiniteScrollObserver.observe(sentinel);
     }
 
     switchTab(tabName) {
@@ -371,7 +400,7 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
         });
     }
     
-    filterDispatches() {
+    filterDispatches(resetPagination = true) {
         const search = (this.searchTerm || '').toLowerCase().trim();
         const topic = this.selectedTopic || 'all';
         
@@ -411,17 +440,21 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
                    arxiv.includes(search);
         });
         
-        this.renderDispatches();
+        this.renderDispatches(resetPagination);
     }
     
-    renderDispatches() {
+    renderDispatches(resetPagination = true) {
         const grid = document.getElementById('papersGrid');
         const noResults = document.getElementById('noResults');
         const allCaughtUp = document.getElementById('allCaughtUp');
+        const sentinel = document.getElementById('scrollSentinel');
+        const endOfFeed = document.getElementById('endOfFeed');
         if (!grid) return;
         
         if (this.filteredPapers.length === 0) {
             grid.style.display = 'none';
+            if (sentinel) sentinel.style.display = 'none';
+            if (endOfFeed) endOfFeed.style.display = 'none';
             if (this.activeTab === 'unread' && !this.searchTerm && this.selectedTopic === 'all') {
                 if (allCaughtUp) allCaughtUp.style.display = 'block';
                 if (noResults) noResults.style.display = 'none';
@@ -435,12 +468,49 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
         grid.style.display = 'flex';
         if (noResults) noResults.style.display = 'none';
         if (allCaughtUp) allCaughtUp.style.display = 'none';
-        grid.innerHTML = '';
-        
-        this.filteredPapers.forEach(paper => {
+
+        if (resetPagination) {
+            this.renderedCount = 0;
+            grid.innerHTML = '';
+            if (endOfFeed) endOfFeed.style.display = 'none';
+        }
+
+        this.renderNextBatch();
+    }
+
+    renderNextBatch() {
+        const grid = document.getElementById('papersGrid');
+        const sentinel = document.getElementById('scrollSentinel');
+        const endOfFeed = document.getElementById('endOfFeed');
+        if (!grid) return;
+
+        const nextBatch = this.filteredPapers.slice(this.renderedCount, this.renderedCount + this.pageSize);
+        if (nextBatch.length === 0) {
+            if (sentinel) sentinel.style.display = 'none';
+            if (endOfFeed && this.renderedCount > 0 && this.renderedCount >= this.filteredPapers.length && this.filteredPapers.length > this.pageSize) {
+                endOfFeed.style.display = 'flex';
+            }
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        nextBatch.forEach(paper => {
             const article = this.createDispatchArticle(paper);
-            grid.appendChild(article);
+            fragment.appendChild(article);
         });
+        grid.appendChild(fragment);
+
+        this.renderedCount += nextBatch.length;
+
+        if (this.renderedCount < this.filteredPapers.length) {
+            if (sentinel) sentinel.style.display = 'flex';
+            if (endOfFeed) endOfFeed.style.display = 'none';
+        } else {
+            if (sentinel) sentinel.style.display = 'none';
+            if (endOfFeed && this.filteredPapers.length > this.pageSize) {
+                endOfFeed.style.display = 'flex';
+            }
+        }
     }
     
     createDispatchArticle(paper) {
@@ -580,7 +650,7 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
         const arxivBtn = article.querySelector('.arxiv-link');
         const pdfBtn = article.querySelector('.pdf-link');
         const hfBtn = article.querySelector('.hf-link');
-        const shareBtn = article.querySelector('.share-icon-btn');
+        const shareBtn = article.querySelector('.btn-share') || article.querySelector('.share-icon-btn');
         
         if (arxivId && arxivBtn) {
             arxivBtn.href = `https://arxiv.org/abs/${arxivId}`;
@@ -602,7 +672,7 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
         }
         
         if (shareBtn) {
-            shareBtn.addEventListener('click', () => this.sharePaper(paper));
+            shareBtn.addEventListener('click', () => this.sharePaper(paper, shareBtn));
         }
 
         // ==============================================================================
@@ -770,18 +840,47 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
         this.lastAction = null;
     }
     
-    sharePaper(paper) {
+    sharePaper(paper, btnElem) {
         const title = paper.title || 'Research Paper';
         const url = paper.arxiv_id ? `${window.location.origin}${window.location.pathname}#${paper.arxiv_id}` : window.location.href;
-        const text = `Read "${title}" on Dr. Paper:`;
         
-        if (navigator.share) {
-            navigator.share({ title, text, url }).catch(() => {});
-        } else {
-            navigator.clipboard.writeText(`${text} ${url}`).then(() => {
-                this.showToast('Paper link copied to clipboard.');
-            });
-        }
+        const copyToClipboard = () => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(url);
+            } else {
+                // Fallback for older browsers / iframe contexts
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (e) {
+                    console.error('Fallback clipboard copy failed:', e);
+                }
+                document.body.removeChild(textArea);
+                return Promise.resolve();
+            }
+        };
+
+        copyToClipboard().then(() => {
+            this.showToast(`Permalink copied: #${paper.arxiv_id || ''}`);
+            if (btnElem) {
+                btnElem.classList.add('copied');
+                const originalHtml = btnElem.innerHTML;
+                btnElem.innerHTML = '<i class="fas fa-check"></i> <span class="action-text">Copied!</span>';
+                setTimeout(() => {
+                    btnElem.classList.remove('copied');
+                    btnElem.innerHTML = originalHtml;
+                }, 2000);
+            }
+        }).catch(() => {
+            this.showToast('Unable to copy permalink to clipboard.');
+        });
     }
 
     handleDeepLink() {
@@ -796,13 +895,43 @@ Eliminates physical hallucination by 64% in simulated robot benchmarks with mini
                 this.switchTab('all');
             }
 
+            // Find target paper's position in filtered list
+            const targetIndex = this.filteredPapers.findIndex(p => p.arxiv_id === hash);
+            if (targetIndex >= 0 && targetIndex >= this.renderedCount) {
+                // Dynamically expand rendered batch to include target paper
+                this.renderedCount = Math.min(targetIndex + 4, this.filteredPapers.length);
+                const grid = document.getElementById('papersGrid');
+                if (grid) {
+                    grid.innerHTML = '';
+                    const fragment = document.createDocumentFragment();
+                    this.filteredPapers.slice(0, this.renderedCount).forEach(p => {
+                        fragment.appendChild(this.createDispatchArticle(p));
+                    });
+                    grid.appendChild(fragment);
+
+                    const sentinel = document.getElementById('scrollSentinel');
+                    const endOfFeed = document.getElementById('endOfFeed');
+                    if (this.renderedCount < this.filteredPapers.length) {
+                        if (sentinel) sentinel.style.display = 'flex';
+                        if (endOfFeed) endOfFeed.style.display = 'none';
+                    } else {
+                        if (sentinel) sentinel.style.display = 'none';
+                        if (endOfFeed && this.filteredPapers.length > this.pageSize) {
+                            endOfFeed.style.display = 'flex';
+                        }
+                    }
+                }
+            }
+
             setTimeout(() => {
                 const elemId = `paper-${hash.replace(/[^a-zA-Z0-9]/g, '_')}`;
                 const elem = document.getElementById(elemId);
                 if (elem) {
                     elem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    elem.style.outline = '2px solid var(--accent-amber)';
-                    setTimeout(() => { elem.style.outline = ''; }, 2500);
+                    elem.classList.add('deep-link-target');
+                    setTimeout(() => {
+                        elem.classList.remove('deep-link-target');
+                    }, 3200);
                 }
             }, 350);
         }

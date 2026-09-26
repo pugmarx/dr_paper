@@ -1,3 +1,4 @@
+import math
 import re
 import time
 from datetime import datetime, timedelta
@@ -7,25 +8,34 @@ import requests
 
 from config import config
 
-# arXiv Search Topics & Configurations
+# arXiv Search Topics & Configurations (Computer Science AI/ML categories)
 TOPICS = [
-    "large language model", "transformer", "RLHF", "multimodal LLM", 
-    "LLM reasoning", "LLM alignment", "retrieval augmented generation", 
-    "foundation model", "autonomous agent", "code generation"
+    "reasoning", "agent", "world model", "kv cache", "attention",
+    "rlvr", "synthetic data", "test-time compute", "coding agent",
+    "multimodal", "post-training", "distillation"
 ]
 
 ARXIV_BASE_URL = "http://export.arxiv.org/api/query?"
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
-SUBSTACK_NEWSLETTER_FEEDS = [
-    "https://lastweekinai.substack.com/feed",
-    "https://importai.substack.com/feed"
-]
 
-# High-impact organizations to boost paper scores
+# High-impact organizations, frontier labs, and academic research hubs
 HIGH_IMPACT_ORGS = [
-    "google", "deepmind", "anthropic", "openai", "microsoft", "meta", "facebook",
-    "hugging face", "huggingface", "stanford", "mit", "berkeley", "cmu", "nyu", 
-    "toronto", "oxford", "cambridge", "princeton", "washington", "allen institute"
+    # Frontier & Open Source AI Pioneers
+    "openai", "anthropic", "google", "deepmind", "meta", "fair", "microsoft",
+    "hugging face", "huggingface", "fast.ai", "fastai", "mistral", "together ai",
+    "cohere", "stability ai", "eleutherai", "deepseek", "qwen", "01.ai", "allenai",
+    "allen institute", "tokenrhythm",
+
+    # Industry Research Labs
+    "salesforce", "nvidia", "apple", "amazon science", "ibm research", "tencent",
+    "alibaba", "bytedance", "baidu research", "huawei",
+
+    # Global Top Academic & Research Institutions
+    "stanford", "mit", "berkeley", "cmu", "carnegie mellon", "harvard", "princeton",
+    "cornell", "columbia", "nyu", "uiuc", "illinois", "washington", "toronto", "mila",
+    "vector institute", "oxford", "cambridge", "imperial", "eth zurich", "epfl",
+    "inria", "max planck", "tsinghua", "peking", "kaist", "skku", "nus", "tokyo",
+    "apodex"
 ]
 
 # Blacklist terms to filter out non-AI and niche biological/clinical domains
@@ -38,18 +48,23 @@ BLACKLIST_TERMS = [
     "battery", "power grid", "lesion detection", "tumor segmentation"
 ]
 
-# High-impact keywords in AI/LLM research
+# Frontier paradigms & high-signal research keywords
 TRENDING_KEYWORDS = [
-    'gpt', 'llm', 'large language model', 'transformer', 'attention',
-    'diffusion', 'text-to-image', 'multimodal', 'vision-language',
-    'reinforcement learning', 'rlhf', 'rlaif', 'alignment',
-    'few-shot', 'zero-shot', 'in-context learning', 'prompt',
-    'retrieval augmented', 'rag', 'vector database', 'embedding',
-    'fine-tuning', 'instruction tuning', 'chain-of-thought',
-    'reasoning', 'planning', 'agent', 'autonomous', 'tool use',
-    'code generation', 'software engineering', 'quantization',
-    'speculative decoding', 'long context', 'mixture of experts', 'moe',
-    'interpretability', 'mechanistic interpretability', 'benchmark'
+    # Reasoning & Test-time Compute
+    "reasoning", "test-time compute", "test-time scaling", "rlvr", "process supervision",
+    "self-play", "chain-of-thought", "search-based", "tree search",
+    # KV Cache & Efficient Attention
+    "kv cache", "attention sparsification", "declarative attention", "sparse attention",
+    "linear attention", "long-context", "long context", "context compression",
+    # Agents & World Models
+    "world model", "coding agent", "swe-bench", "software engineering agent",
+    "gui agent", "autonomous agent", "tool use", "scientific workflow",
+    # Synthetic Data & Alignment
+    "synthetic data", "distillation", "verifiable rewards", "post-training",
+    "rlhf", "rlaif", "dpo", "grpo", "preference optimization",
+    # Frontier Architectures & Latent Space
+    "mixture of experts", "moe", "multimodal", "vision-language", "latent space",
+    "discrete diffusion", "quantization", "speculative decoding", "mechanistic interpretability"
 ]
 
 def extract_arxiv_id_and_version(url_or_id: str) -> tuple[Optional[str], int]:
@@ -70,10 +85,10 @@ def get_current_edition_tag() -> str:
     year, week, _ = now.isocalendar()
     return f"{year}-W{week:02d}"
 
-def has_high_impact_authors(authors: List[str]) -> bool:
-    """Check if any author belongs to a top institution"""
-    author_text = " ".join(authors).lower()
-    return any(org in author_text for org in HIGH_IMPACT_ORGS)
+def has_high_impact_authors(authors: List[str], org: Optional[str] = None, text: str = "") -> bool:
+    """Check if any author, organization, or context matches high-impact research institutions"""
+    combined_target = (f"{org or ''} {' '.join(authors)} {text}").lower()
+    return any(target_org in combined_target for target_org in HIGH_IMPACT_ORGS)
 
 def is_blacklisted(title: str, summary: str) -> bool:
     """Check if paper contains blacklisted domain terms"""
@@ -82,100 +97,143 @@ def is_blacklisted(title: str, summary: str) -> bool:
 
 def calculate_paper_score(paper: Dict) -> float:
     """
-    Calculate quality and relevance score for weekly curation.
+    Calculate quality and relevance score for weekly/rolling curation.
+    Combines logarithmic community traction, frontier paradigm alignment,
+    institutional pedigree, and open benchmark releases.
     """
     title = paper.get("title", "").strip()
     summary = paper.get("summary", "").strip()
     authors = paper.get("authors", [])
-    combined_text = f"{title} {summary}".lower()
-    days_old = paper.get("days_since_publication", 7)
+    org = paper.get("organization", "")
+    upvotes = paper.get("upvotes", 0)
     version = paper.get("version", 1)
+    days_old = paper.get("days_since_publication", 7)
+    combined_text = f"{title} {summary}".lower()
     
     if is_blacklisted(title, summary):
         return 0.0
 
     score = 0.0
 
-    # 1. Newsletter curation bonus (+3.0 if highlighted by Substack/newsletters)
-    if paper.get("curated_source") in ("lastweekinai", "substack"):
-        score += 3.0
+    # 1. Logarithmic Community Traction (Upvotes / Peer Attention)
+    # 400 upvotes -> +8.99 pts | 100 upvotes -> +6.92 pts | 10 upvotes -> +3.60 pts
+    if upvotes > 0:
+        score += math.log(1 + upvotes) * 1.5
 
-    # 2. High impact institution (+2.0)
-    if has_high_impact_authors(authors):
-        score += 2.0
+    # 2. Institutional Pedigree & Frontier Lab Boost (+2.5 pts)
+    if has_high_impact_authors(authors, org=org, text=combined_text):
+        score += 2.5
 
-    # 3. Paper revisions / traction (+1.0 for version > 1)
+    # 3. Frontier Paradigm Keyword Hits (up to +4.0 pts)
+    keyword_hits = sum(1 for kw in TRENDING_KEYWORDS if kw in combined_text)
+    score += min(keyword_hits * 0.8, 4.0)
+
+    # 4. Benchmark / Open Evaluation Platform / Dataset Release (+1.5 pts)
+    eval_indicators = ["benchmark", "evaluation platform", "dataset", "open source", "open-source", "harness"]
+    if any(ind in combined_text for ind in eval_indicators):
+        score += 1.5
+
+    # 5. Paper Revisions / Multi-iteration Traction (+1.0 pt for version > 1)
     if version > 1:
         score += 1.0
 
-    # 4. Trending keywords (+2.0 for 2+ keywords, +1.0 for 1 keyword)
-    keyword_hits = sum(1 for kw in TRENDING_KEYWORDS if kw in combined_text)
-    if keyword_hits >= 2:
-        score += 2.0
-    elif keyword_hits == 1:
-        score += 1.0
-
-    # 5. Benchmark or open-source release (+1.0)
-    if "benchmark" in combined_text or "open source" in combined_text or "open-source" in combined_text:
-        score += 1.0
-
-    # 6. Core topic overlap bonus
-    core_topics = ["large language model", "multimodal", "reasoning", "retrieval augmented", "transformer", "agent"]
-    topic_hits = sum(1 for t in core_topics if t in combined_text)
-    if topic_hits >= 2:
-        score += 1.5
-    elif topic_hits == 1:
-        score += 0.5
-
-    # 7. Recency bonus
+    # 6. Recency Adjustment (Peak rolling sweet-spot is 1-5 days old)
     if days_old <= 3:
         score += 1.0
     elif days_old <= 7:
         score += 0.5
 
-    # 8. Upvotes bonus (if from Hugging Face Daily Papers)
-    upvotes = paper.get("upvotes", 0)
-    if upvotes > 0:
-        score += min(upvotes * 0.2, 3.0)
+    # 7. Curated Source Boost
+    if paper.get("curated_source") in ("huggingface", "lastweekinai", "substack"):
+        score += 1.0
 
-    # 9. Damp weak papers
-    if score < 2.5 and paper.get("curated_source") not in ("lastweekinai", "huggingface"):
-        score *= 0.75
+    # 8. Damp weak unvetted preprints
+    if score < 3.0 and upvotes == 0 and not has_high_impact_authors(authors, org=org, text=combined_text):
+        score *= 0.7
 
     return round(score, 2)
 
-def fetch_newsletter_curated_arxiv_ids() -> Set[str]:
-    """Scrape recent newsletter RSS feeds to find curated arXiv paper mentions"""
-    curated_ids = set()
-    
-    for feed_url in SUBSTACK_NEWSLETTER_FEEDS:
-        try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:10]:
-                content = getattr(entry, "summary", "") + " " + getattr(entry, "content", [{}])[0].get("value", "")
-                # Find all arxiv IDs or links in the newsletter content
-                matches = re.findall(r'(?:arxiv\.org/(?:abs|pdf)/|arXiv:)(\d{4}\.\d{4,5})', content, re.IGNORECASE)
-                for aid in matches:
-                    curated_ids.add(aid)
-        except Exception as e:
-            print(f"[WARN] Failed parsing newsletter feed {feed_url}: {e}")
+def fetch_hf_daily_papers(days_back: int = 7) -> List[Dict]:
+    """
+    Fetch all curated trending papers from Hugging Face API across the full rolling window.
+    Iterates over each date in the window to capture mature peer signals.
+    """
+    all_papers = []
+    seen_ids = set()
 
-    return curated_ids
+    for day_offset in range(days_back):
+        target_date = datetime.utcnow() - timedelta(days=day_offset)
+        date_str = target_date.strftime("%Y-%m-%d")
+        url = f"{HF_DAILY_PAPERS_URL}?date={date_str}"
+        
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code != 200:
+                continue
+
+            data = response.json()
+            for item in data:
+                paper_info = item.get("paper", {})
+                raw_id = paper_info.get("id", "")
+                arxiv_id, version = extract_arxiv_id_and_version(raw_id)
+                if not arxiv_id or arxiv_id in seen_ids:
+                    continue
+
+                seen_ids.add(arxiv_id)
+
+                published_str = paper_info.get("publishedAt", "")
+                try:
+                    published_dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                    days_ago = (datetime.utcnow().replace(tzinfo=published_dt.tzinfo) - published_dt).days
+                except Exception:
+                    published_dt = target_date
+                    days_ago = day_offset
+
+                authors = [a.get("name", "") for a in paper_info.get("authors", []) if isinstance(a, dict)]
+                clean_title = re.sub(r'\s+', ' ', paper_info.get("title", "")).strip()
+                clean_summary = re.sub(r'\s+', ' ', paper_info.get("summary", "")).strip()
+                org_info = paper_info.get("organization") or {}
+                org_name = org_info.get("name") if isinstance(org_info, dict) else ""
+
+                if clean_title and not is_blacklisted(clean_title, clean_summary):
+                    all_papers.append({
+                        "arxiv_id": arxiv_id,
+                        "version": version,
+                        "title": clean_title,
+                        "summary": clean_summary,
+                        "authors": authors,
+                        "organization": org_name or "",
+                        "topic": "Frontier AI",
+                        "published_at": published_dt.isoformat(),
+                        "days_since_publication": max(days_ago, 0),
+                        "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
+                        "hf_url": f"https://huggingface.co/papers/{arxiv_id}",
+                        "curated_source": "huggingface",
+                        "published_edition": get_current_edition_tag(),
+                        "upvotes": paper_info.get("upvotes", 0),
+                        "status": "draft"
+                    })
+        except Exception as e:
+            print(f"[WARN] Error querying Hugging Face Daily Papers for date {date_str}: {e}")
+
+    return all_papers
 
 def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -> List[Dict]:
-    """Fetch papers from arXiv across specified AI topics within the weekly window"""
+    """Fetch recent papers from arXiv across specified frontier AI topics within the rolling window"""
     topics_to_search = topics or TOPICS
     all_papers = []
-    newsletter_ids = fetch_newsletter_curated_arxiv_ids()
+    headers = {"User-Agent": "DrPaperBot/1.0 (https://drpaper.pugmarx.me; contact@pugmarx.me)"}
 
-    for topic in topics_to_search:
-        # Restrict specifically to Computer Science AI/ML categories
+    for topic in topics_to_search[:5]:
         topic_term = topic.replace(' ', '+')
-        query = f"(cat:cs.CL+OR+cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CV)+AND+(ti:%22{topic_term}%22+OR+abs:%22{topic_term}%22)"
+        query = f"(cat:cs.CL+OR+cat:cs.AI+OR+cat:cs.LG)+AND+(ti:%22{topic_term}%22+OR+abs:%22{topic_term}%22)"
         url = f"{ARXIV_BASE_URL}search_query={query}&sortBy=submittedDate&sortOrder=descending&max_results=10"
         
         try:
-            feed = feedparser.parse(url)
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code != 200:
+                continue
+            feed = feedparser.parse(res.content)
             for entry in feed.entries:
                 arxiv_id, version = extract_arxiv_id_and_version(entry.id)
                 if not arxiv_id:
@@ -200,20 +258,19 @@ def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -
                 pdf_link = next((l.href for l in getattr(entry, "links", []) if getattr(l, "type", "") == "application/pdf"), f"https://arxiv.org/pdf/{arxiv_id}.pdf")
                 author_names = [a.name for a in getattr(entry, "authors", []) if hasattr(a, "name")]
 
-                is_in_newsletter = arxiv_id in newsletter_ids
-
                 paper = {
                     "arxiv_id": arxiv_id,
                     "version": version,
                     "title": clean_title,
                     "summary": clean_summary,
                     "authors": author_names,
+                    "organization": "",
                     "topic": topic,
                     "published_at": published_dt.isoformat() + "Z",
                     "days_since_publication": days_ago,
                     "pdf_url": pdf_link,
                     "hf_url": f"https://huggingface.co/papers/{arxiv_id}",
-                    "curated_source": "lastweekinai" if is_in_newsletter else "arxiv",
+                    "curated_source": "arxiv",
                     "published_edition": get_current_edition_tag(),
                     "upvotes": 0,
                     "status": "draft"
@@ -227,66 +284,16 @@ def fetch_arxiv_papers(topics: Optional[List[str]] = None, days_back: int = 7) -
 
     return all_papers
 
-def fetch_hf_daily_papers(limit: int = 15) -> List[Dict]:
-    """Fetch curated trending daily papers from Hugging Face API"""
-    papers = []
-    try:
-        response = requests.get(HF_DAILY_PAPERS_URL, timeout=10)
-        if response.status_code != 200:
-            return papers
-
-        data = response.json()
-        for item in data[:limit]:
-            paper_info = item.get("paper", {})
-            raw_id = paper_info.get("id", "")
-            arxiv_id, version = extract_arxiv_id_and_version(raw_id)
-            if not arxiv_id:
-                continue
-
-            published_str = paper_info.get("publishedAt", "")
-            try:
-                published_dt = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
-                days_ago = (datetime.utcnow().replace(tzinfo=published_dt.tzinfo) - published_dt).days
-            except Exception:
-                published_dt = datetime.utcnow()
-                days_ago = 0
-
-            authors = [a.get("name", "") for a in paper_info.get("authors", []) if isinstance(a, dict)]
-            clean_title = re.sub(r'\s+', ' ', paper_info.get("title", "")).strip()
-            clean_summary = re.sub(r'\s+', ' ', paper_info.get("summary", "")).strip()
-
-            if clean_title:
-                papers.append({
-                    "arxiv_id": arxiv_id,
-                    "version": version,
-                    "title": clean_title,
-                    "summary": clean_summary,
-                    "authors": authors,
-                    "topic": "Trending AI",
-                    "published_at": published_dt.isoformat(),
-                    "days_since_publication": days_ago,
-                    "pdf_url": f"https://arxiv.org/pdf/{arxiv_id}.pdf",
-                    "hf_url": f"https://huggingface.co/papers/{arxiv_id}",
-                    "curated_source": "huggingface",
-                    "published_edition": get_current_edition_tag(),
-                    "upvotes": paper_info.get("upvotes", 0),
-                    "status": "draft"
-                })
-    except Exception as e:
-        print(f"[WARN] Error querying Hugging Face Daily Papers: {e}")
-
-    return papers
-
 def deduplicate_papers(papers: List[Dict]) -> List[Dict]:
-    """Deduplicate papers preferring higher-signal entries (newsletter / HF with upvotes)"""
+    """Deduplicate papers preferring higher-signal entries (upvotes, verified metadata, versions)"""
     seen_ids = set()
     seen_titles = set()
     unique = []
 
-    # Sort priority: newsletter mentions > upvotes > versions
+    # Sort priority: upvotes > versions > has_organization
     def priority_key(x):
-        is_news = 100 if x.get("curated_source") == "lastweekinai" else 0
-        return (is_news + x.get("upvotes", 0), x.get("version", 1))
+        has_org = 10 if x.get("organization") else 0
+        return (x.get("upvotes", 0), has_org, x.get("version", 1))
 
     sorted_papers = sorted(papers, key=priority_key, reverse=True)
 
@@ -308,23 +315,25 @@ def deduplicate_papers(papers: List[Dict]) -> List[Dict]:
 
 def fetch_rolling_candidate_papers(limit: int = 15, days_back: int = 7) -> List[Dict]:
     """
-    Main curation fetcher: Ingests from newsletters, Hugging Face, and arXiv across a rolling 7-day window.
-    Allows crowdsourced upvotes and newsletter mentions to mature for peak ranking signal.
+    Main curation fetcher: Ingests candidates across the 7-day rolling window,
+    scores with logarithmic community traction and frontier paradigm matching,
+    and returns top-ranked breakthrough papers.
     """
     all_papers = []
 
-    # 1. HF Daily Papers
-    hf_papers = fetch_hf_daily_papers()
+    # 1. Multi-day HF Daily Papers (Community peer signals & upvotes across 7 days)
+    hf_papers = fetch_hf_daily_papers(days_back=days_back)
     all_papers.extend(hf_papers)
 
-    # 2. arXiv Papers (with newsletter cross-checking)
-    arxiv_papers = fetch_arxiv_papers(days_back=days_back)
-    all_papers.extend(arxiv_papers)
+    # 2. arXiv Category Papers (Fallback preprints when pool needs supplementary candidates)
+    if len(all_papers) < limit * 3:
+        arxiv_papers = fetch_arxiv_papers(days_back=days_back)
+        all_papers.extend(arxiv_papers)
 
     # 3. Deduplicate
     unique_papers = deduplicate_papers(all_papers)
 
-    # 4. Score and filter
+    # 4. Score and rank
     scored_papers = []
     for paper in unique_papers:
         score = calculate_paper_score(paper)
@@ -342,10 +351,10 @@ def fetch_and_rank_papers(include_arxiv: bool = True, include_hf: bool = True, m
     return fetch_rolling_candidate_papers(limit=limit or 10)
 
 if __name__ == "__main__":
-    print("[*] Fetching candidate papers across 7-day rolling window...")
-    top_candidates = fetch_rolling_candidate_papers(limit=5)
+    print("[*] Fetching candidate papers across 7-day rolling window with new discovery logic...")
+    top_candidates = fetch_rolling_candidate_papers(limit=8)
     print(f"\n[+] Selected {len(top_candidates)} top candidate papers:")
     for idx, p in enumerate(top_candidates, 1):
-        print(f"\n{idx}. [{p['score']:>4.1f}] {p['title']}")
+        print(f"\n{idx}. [{p['score']:>4.1f} pts | {p['upvotes']:>3} upvotes | Org: {p.get('organization') or 'N/A'}] {p['title']}")
         print(f"   arXiv: {p['arxiv_id']} | Source: {p['curated_source']} | Edition: {p['published_edition']}")
-        print(f"   Abstract: {p['summary'][:160]}...")
+        print(f"   Abstract: {p['summary'][:140]}...")

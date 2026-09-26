@@ -4,7 +4,17 @@ import re
 import time
 from typing import Dict, List, Optional
 import requests
-from pydantic import BaseModel, Field
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    class BaseModel:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+        def model_dump(self):
+            return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+    def Field(*args, **kwargs):
+        return None
 
 from config import config
 
@@ -19,11 +29,11 @@ class EditorialAnalysis(BaseModel):
     key_takeaways: List[str] = Field(description="3-4 crisp, actionable takeaways for engineers.")
 
     def to_dict(self) -> Dict:
-        data = self.model_dump()
+        data = self.model_dump() if hasattr(self, "model_dump") else self.__dict__.copy()
         # Backward compatibility aliases for legacy frontend cards
-        data["problem"] = self.context_and_motivation
-        data["innovation"] = self.core_mechanism
-        data["impact"] = self.empirical_results
+        data["problem"] = getattr(self, "context_and_motivation", "")
+        data["innovation"] = getattr(self, "core_mechanism", "")
+        data["impact"] = getattr(self, "empirical_results", "")
         return data
 
 # ==============================================================================
